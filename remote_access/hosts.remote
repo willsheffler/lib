@@ -1,0 +1,42 @@
+# should be appended to /etc/hosts file
+# below should only be used with crazy ssh-tunnel setup 
+# (will cause problems inside baker firewall)
+
+127.0.0.201 dig1
+127.0.0.201 dig2
+127.0.0.203 dig3
+127.0.0.204 dig4
+127.0.0.205 dig5
+127.0.0.206 dig6
+127.0.0.207 dig7
+127.0.0.208 dig8
+127.0.0.209 dig9
+127.0.0.210 dig10
+127.0.0.211 dig11
+127.0.0.212 dig12
+127.0.0.213 dig13
+127.0.0.214 dig14
+127.0.0.215 dig15
+127.0.0.216 dig16
+127.0.0.217 dig17
+127.0.0.218 dig18
+127.0.0.219 dig19
+127.0.0.220 dig20
+127.0.0.221 dig21
+127.0.0.222 dig22
+127.0.0.223 dig23
+127.0.0.224 dig24
+127.0.0.225 dig25
+127.0.0.226 dig26
+127.0.0.227 dig27
+127.0.0.228 dig28
+127.0.0.229 dig29
+127.0.0.230 dig30
+127.0.0.231 dig31
+127.0.0.232 dig32
+127.0.0.233  syd
+127.0.0.234  bes
+127.0.0.235 niau
+127.0.0.236 ratfor
+127.0.0.237 snobol
+127.0.0.238 modula

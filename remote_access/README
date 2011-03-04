@@ -1,0 +1,23 @@
+check this out: svn co https://svn.rosettacommons.org/source/workspaces/sheffler/scripts/remote_access
+
+the will be four files, only three of which you need:
+
+hosts.remote           # contains info to add to your hosts file when you're remote
+baker.tunnels.ipfw   # run this to set up your extra loopback IPs and port forwarding
+baker.tunnels.tofw   # run this to log into the firewall -- just a big ssh line
+
+first, you need to add the lines in hosts.remote (like this: "127.0.0.201 whip01") to the end of your /etc/hosts file. Those entries will mess you up if you're inside the baker firewall, so you probably want to set up some little script to switch in and out a hosts file with and without this. I have something like this in my bashrc:
+
+function networkexternal {
+    sudo cp /etc/hosts.base /etc/hosts
+    suco cat /etc/hosts.remote >> /etc/hosts
+}
+function networkbaker {
+    sudo cp /etc/hosts.base /etc/hosts
+}
+
+next, run baker.tunnels.ipfw as root: "sudo sh baker.tunnels.ipfw". This uses ipfw, the mac version of iptables, to make you a bunch of fake IPs which point to localhost and forwards anything sent to those addresses to a particular port on localhost (one per fake address).
+
+finally, source baker.tunnels.tofw. this is just a big ssh line which forwards the appropriate ports on localhost in the right way. you'll have to put your password in only once and many tunnels will be set up.
+
+the result of all this is that packets sent to, say, host 'syd' will be sent to localhost aliased IP addr 127.0.0.233 port 22 will be forwarded to real localhost IP addr 127.0.0.1 port 55233 (by ipfw) which is forwarded to fw.bakerlab.org port 55233 which is forwarded to syd port 22. The tunnels on the firewall should be up and running already, so you won't need to do anything on the firewall.
