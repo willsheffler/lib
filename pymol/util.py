@@ -725,7 +725,7 @@ def drawtestcone():
 	ang = 5.0
 	R = rotation_matrix(X,ang)
 	p = Y
-	d = X+Z
+	d = (X+Z).normalized()
 	P,D = [],[]
 	for i in range(360/ang):
 		P.append(p)
@@ -768,9 +768,18 @@ def test_conelineinter(p,d):
 	print X
 	cmd.delete("lines")
 	cmd.delete("X*")
+	cmd.delete("L*")
+	cmd.delete("A*")
+	cmd.delete("B*")	
 	drawlines(p,d)
 	for i,x in enumerate(X):
 		cmd.load_cgo(x.cgo(),"X"+str(i))
+		o = projperp(a,x-v).normalized()
+		o = rotation_matrix(a,90)*o
+		cmd.load_cgo((v+o).cgo(),"A"+str(i))
+		cmd.load_cgo((v-o).cgo(),"B"+str(i))
+		drawlines(x,(x-(v+o)).normalized(),"LA"+str(i))
+		drawlines(x,(x-(v-o)).normalized(),"LB"+str(i))		
 		
 	
 	
