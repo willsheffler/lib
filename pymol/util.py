@@ -3,6 +3,8 @@ from pymol.cgo import *
 from random import randrange
 import glob
 import sets
+from math import sqrt
+import random
 # from vecmat import *
 
 numcom = 0
@@ -76,17 +78,29 @@ class Vec(object):
       v = Vec(u)
       u.normalize()
       return u
+   def cgo(v,COL=Vec(1,1,1)):
+      return [
+            COLOR, COL.x, COL.y, COL.z, 
+            SPHERE,  v.x, v.y, v.z, 0.2, ]
    def cgofrompoint(a,c):
       return [
             COLOR, 1.0, 1.0, 1.0,     
             SPHERE,  c.x, c.y, c.z, 1.0,
             CYLINDER,c.x    ,c.y    ,c.z    ,
                      c.x+a.x,c.y+a.y,c.z+a.z,0.5,
-                     1,1,1,1,1,1,
-            ]
+                     1,1,1,1,1,1, ]
+   def outer(u,v):
+		return Mat( u.x*v.x, u.x*v.y, u.x*v.z,
+		            u.y*v.x, u.y*v.y, u.y*v.z,
+		            u.z*v.x, u.z*v.y, u.z*v.z		 )
       
       
+X = Vec(1,0,0)
+Y = Vec(0,1,0)
+Z = Vec(0,0,1)
 
+def randvec():
+	return Vec(random.gauss(0,1),random.gauss(0,1),random.gauss(0,1))
 
 class Mat(object):
    """docstring for Mat"""
@@ -151,19 +165,34 @@ class Mat(object):
          except:
             print type(v)
             raise NotImplementedError
+   def __rmul__(m,v):
+      if type(v) in(type(0),type(0.0)):
+         return Mat( v*m.xx, v*m.xy, v*m.xz, v*m.yx, v*m.yy, v*m.yz, v*m.zx, v*m.zy, v*m.zz )
+      elif type(v) is Vec:
+         return Vec( m.colx()*v, m.coly()*v, m.colz()*v )
+      else:
+         try:
+            return v.__rmul__(m)
+         except:
+            print type(v)
+            raise NotImplementedError
    def __div__(m,v):
       return m*(1/v)
-   # def __add__(m,v):
-   #    if type(v) in(type(0),type(0.0)):
-   #       return Mat( v+m.xx, v+m.xy, v+m.xz, v+m.yx, v+m.yy, v+m.yz, v+m.zx, v+m.zy, v+m.zz )
-   #    elif type(v) is Mat:
-   #       return Mat( v.xx+m.xx, v.xy+m.xy, v.xz+m.xz, v.yx+m.yx, v.yy+m.yy, v.yz+m.yz, v.zx+m.zx, v.zy+m.zy, v.zz+m.zz )
-   #    else:
-   #       try:
-   #          return v.__rmul__(m)
-   #       except:
-   #          print type(v)
-   #          raise NotImplementedError
+   def __add__(m,v):
+      if type(v) in(type(0),type(0.0)):
+         return Mat( v+m.xx, v+m.xy, v+m.xz, v+m.yx, v+m.yy, v+m.yz, v+m.zx, v+m.zy, v+m.zz )
+      elif type(v) is Mat:
+         return Mat( v.xx+m.xx, v.xy+m.xy, v.xz+m.xz, v.yx+m.yx, v.yy+m.yy, v.yz+m.yz, v.zx+m.zx, v.zy+m.zy, v.zz+m.zz )
+      else:
+         try:
+            return v.__rmul__(m)
+         except:
+            print type(v)
+            raise NotImplementedError
+   def __sub__(m,v):
+      return m + -v
+   def __neg__(m):
+      return m * -1
    def __str__(m):
       return "Mat( "+str(m.rowx())+"\n     "+str(m.rowy())+"\n     "+str(m.rowz()) + "  )"
    def transpose(m):
@@ -676,3 +705,72 @@ def loadmov(d):
 	files = glob.glob(d+"/*.pdb")
 	for f in files: cmd.load(f,"mov")
 
+def drawlines(p, d, lab="lines", COL=Vec(1,1,1), SIZE=20.0):
+	if type(p) is type(Vec(1)): p = [p,]
+	if type(d) is type(Vec(1)): d = [d,]
+	assert len(p) == len(d)
+	obj = [ BEGIN, LINES, COLOR, COL.x, COL.y, COL.z, ]
+	for i in range(len(p)):
+		p1 = p[i] + -SIZE*d[i]
+		p2 = p[i] +  SIZE*d[i]
+		obj.extend([
+	   		VERTEX, p1.x, p1.y, p1.z,
+	   		VERTEX, p2.x, p2.y, p2.z,
+			])
+	obj.append(END)
+	cmd.load_cgo(obj,lab)
+	                                                                                            
+	
+def drawtestcone():
+	ang = 5.0
+	R = rotation_matrix(X,ang)
+	p = Y
+	d = X+Z
+	P,D = [],[]
+	for i in range(360/ang):
+		P.append(p)
+		D.append(d)
+		p = R*p
+		d = R*d
+	drawlines(P,D,"hyperb",COL=Vec(0,0,1))
+	ang = 5.0
+	R = rotation_matrix(X,ang)
+	p = Vec(0,0,0)
+	d = (X+Z).normalized()
+	P,D = [],[]
+	for i in range(360/ang):
+		P.append(p)
+		D.append(d)
+		p = R*p
+		d = R*d
+	drawlines(P,D,"cone",COL=Vec(1,0,0))
+
+	
+def conelineinter(p,d,v,a,t):
+	t = t / 180.0 * math.pi
+	M = a.outer(a) - math.cos(t)*math.cos(t)*Mat(1,0,0,0,1,0,0,0,1)
+	D = p-v
+	c2 =   d.dot(M*d)
+	c1 = 2*d.dot(M*D)
+	c0 =   D.dot(M*D)
+	disc = c1*c1 - 4*c0*c2
+	if disc < 0: return ()
+	if disc == 0: return ( p + (-c1)/(2.0*c2)*d, )
+	disc = sqrt(disc)
+	return ( p+(-c1+disc)/(2.0*c2)*d , p+(-c1-disc)/(2.0*c2)*d )
+	
+	
+def test_conelineinter(p,d):
+	v = Vec(0,0,0)
+	a = Vec(1,0,0)
+	t = 45
+	X = conelineinter(p,d,v,a,t)
+	print X
+	cmd.delete("lines")
+	cmd.delete("X*")
+	drawlines(p,d)
+	for i,x in enumerate(X):
+		cmd.load_cgo(x.cgo(),"X"+str(i))
+		
+	
+	
