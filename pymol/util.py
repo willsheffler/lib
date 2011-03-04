@@ -78,9 +78,9 @@ class Vec(object):
       v = Vec(u)
       u.normalize()
       return u
-   def cgo(v,COL=Vec(1,1,1)):
+   def cgo(v,COL=(1,1,1)):
       return [
-            COLOR, COL.x, COL.y, COL.z, 
+            COLOR, COL[0], COL[1], COL[2], 
             SPHERE,  v.x, v.y, v.z, 0.2, ]
    def cgofrompoint(a,c):
       return [
@@ -705,11 +705,11 @@ def loadmov(d):
 	files = glob.glob(d+"/*.pdb")
 	for f in files: cmd.load(f,"mov")
 
-def drawlines(p, d, lab="lines", COL=Vec(1,1,1), SIZE=20.0):
+def drawlines(p, d, lab="lines", COL=(1,1,1), SIZE=20.0):
 	if type(p) is type(Vec(1)): p = [p,]
 	if type(d) is type(Vec(1)): d = [d,]
 	assert len(p) == len(d)
-	obj = [ BEGIN, LINES, COLOR, COL.x, COL.y, COL.z, ]
+	obj = [ BEGIN, LINES, COLOR, COL[0], COL[1], COL[2], ]
 	for i in range(len(p)):
 		p1 = p[i] + -SIZE*d[i]
 		p2 = p[i] +  SIZE*d[i]
@@ -721,29 +721,29 @@ def drawlines(p, d, lab="lines", COL=Vec(1,1,1), SIZE=20.0):
 	cmd.load_cgo(obj,lab)
 	                                                                                            
 	
-def drawtestcone():
+def drawtestcone(sele):
+	cmd.delete("cone hyperb")
+	v = com(sele+" and name SG")
+	a = (v - com(sele+" and name CB")).normalized()
+	print v,a
 	ang = 5.0
-	R = rotation_matrix(X,ang)
-	p = Y
-	d = (X+Z).normalized()
+	R = rotation_matrix(a,ang)
+	# P,D = [],[]
+	# for i in range(360/ang):
+	# 	P.append(p)
+	# 	D.append(d)
+	# 	p = R*p
+	# 	d = R*d
+	# drawlines(P,D,"hyperb",COL=(0,0,1))
+	# ang = 5.0
+	p = v
+	d = rotation_matrix( a.cross(randvec()), 45 ) *a
 	P,D = [],[]
 	for i in range(360/ang):
 		P.append(p)
 		D.append(d)
-		p = R*p
 		d = R*d
-	drawlines(P,D,"hyperb",COL=Vec(0,0,1))
-	ang = 5.0
-	R = rotation_matrix(X,ang)
-	p = Vec(0,0,0)
-	d = (X+Z).normalized()
-	P,D = [],[]
-	for i in range(360/ang):
-		P.append(p)
-		D.append(d)
-		p = R*p
-		d = R*d
-	drawlines(P,D,"cone",COL=Vec(1,0,0))
+	drawlines(P,D,"cone",COL=(1,0,0))
 
 	
 def conelineinter(p,d,v,a,t):
@@ -760,9 +760,14 @@ def conelineinter(p,d,v,a,t):
 	return ( p+(-c1+disc)/(2.0*c2)*d , p+(-c1-disc)/(2.0*c2)*d )
 	
 	
-def test_conelineinter(p,d):
-	v = Vec(0,0,0)
-	a = Vec(1,0,0)
+def test_conelineinter(sele):
+	v = com(sele+" and name SG")
+	a = (v - com(sele+" and name CB")).normalized()
+	print v,a
+	p = v+5*randvec()
+	d = randvec().normalized()
+	# v = Vec(0,0,0)
+	# a = Vec(1,0,0)
 	t = 45
 	X = conelineinter(p,d,v,a,t)
 	print X
