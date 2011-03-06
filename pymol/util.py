@@ -721,21 +721,25 @@ def drawlines(p, d, lab="lines", COL=(1,1,1), SIZE=20.0):
 	cmd.load_cgo(obj,lab)
 	                                                                                            
 	
+################### disulf cone tests ##################################
+	
 def drawtestcone(sele):
 	cmd.delete("cone hyperb")
-	v = com(sele+" and name SG")
+	v = com(sele+" and name SG")	
 	a = (v - com(sele+" and name CB")).normalized()
 	print v,a
 	ang = 5.0
 	R = rotation_matrix(a,ang)
-	# P,D = [],[]
-	# for i in range(360/ang):
-	# 	P.append(p)
-	# 	D.append(d)
-	# 	p = R*p
-	# 	d = R*d
-	# drawlines(P,D,"hyperb",COL=(0,0,1))
-	# ang = 5.0
+	perp = a.cross(randvec()).normalized()
+	p = v + perp
+	d = rotation_matrix(perp,45)*a	
+	P,D = [],[]
+	for i in range(360/ang):
+		P.append(p)
+		D.append(d)
+		p = R*(p-v) + v
+		d = R*d
+	drawlines(P,D,"hyperb",COL=(0,0,1))
 	p = v
 	d = rotation_matrix( a.cross(randvec()), 45 ) *a
 	P,D = [],[]
@@ -759,7 +763,11 @@ def conelineinter(p,d,v,a,t):
 	disc = sqrt(disc)
 	return ( p+(-c1+disc)/(2.0*c2)*d , p+(-c1-disc)/(2.0*c2)*d )
 	
-	
+
+def createpoint(sele,p,lab):
+	cmd.create(lab,sele+" and name CA")
+	trans(lab,p-com(lab))
+
 def test_conelineinter(sele):
 	v = com(sele+" and name SG")
 	a = (v - com(sele+" and name CB")).normalized()
@@ -770,7 +778,12 @@ def test_conelineinter(sele):
 	# a = Vec(1,0,0)
 	t = 45
 	X = conelineinter(p,d,v,a,t)
-	print X
+	print "p",p
+	print "d",d
+	print "v",v
+	print "a",a
+	print "t",t
+	print "X",X
 	cmd.delete("lines")
 	cmd.delete("X*")
 	cmd.delete("L*")
@@ -778,13 +791,18 @@ def test_conelineinter(sele):
 	cmd.delete("B*")	
 	drawlines(p,d)
 	for i,x in enumerate(X):
-		cmd.load_cgo(x.cgo(),"X"+str(i))
-		o = projperp(a,x-v).normalized()
-		o = rotation_matrix(a,90)*o
-		cmd.load_cgo((v+o).cgo(),"A"+str(i))
-		cmd.load_cgo((v-o).cgo(),"B"+str(i))
-		drawlines(x,(x-(v+o)).normalized(),"LA"+str(i))
-		drawlines(x,(x-(v-o)).normalized(),"LB"+str(i))		
+		createpoint(sele,x,"X"+str(i))
+		o = projperp(a,x-v)
+		L = o.length()
+		o = o.normalized()
+		ang = 90.0 - math.atan( 1.0 / L )*180.0/math.pi
+		print ang
+		o1 = rotation_matrix(a,  ang )*o
+		o2 = rotation_matrix(a, -ang )*o
+		createpoint(sele,v+o1,"A"+str(i))
+		createpoint(sele,v+o2,"B"+str(i))
+		drawlines(x,(x-(v+o1)).normalized(),"LA"+str(i))
+		drawlines(x,(x-(v+o2)).normalized(),"LB"+str(i))		
 		
 	
 ######################### rosettaholes stuff ###################
@@ -851,7 +869,7 @@ def useTempRadii(sel="all"):
 
 
 
-
+################## symmetry utils ###################
 
 
 def dimeraxis(sele,alignsele=None,chains=["A","B"]):
