@@ -9,25 +9,6 @@ from GenUtils import zload
 rainbow = ['0xCCFF00', '0xFF0000', '0xCC00FF', '0x00FF66', '0x80FF00', '0x0019FF', '0x00FF19', '0x33FF00', '0xFF0099', '0xFF004D', '0xFF00E6', '0x00FFFF', '0x0066FF', '0x8000FF', '0x00B3FF', '0xFFE500', '0x00FFB2', '0xFF4C00', '0x3300FF', '0xFF9900']
 
 
-def useRosettaRadii():
-	cmd.alter("element C", "vdw=2.00")
-	cmd.alter("element N", "vdw=1.75")
-	cmd.alter("element O", "vdw=1.55")
-	cmd.alter("element H", "vdw=1.00")
-	cmd.alter("element P", "vdw=1.90")
-	cmd.set("sphere_scale", 1.0)
-	
-def expandRadii(delta=1.0, sel='all'):
-	for a in cmd.get_model(sel).atom:	
-		r = float(a.vdw) + float(delta)
-		cmd.alter("index "+`a.index`,'vdw='+`r`)
-	cmd.rebuild(sel,"spheres")
-
-def contractRadii(delta=1.0, sel='all'):
-	for a in cmd.get_model(sel).atom:	
-		r = float(a.vdw) - float(delta)
-		cmd.alter("index "+`a.index`,'vdw='+`r`)
-	cmd.rebuild(sel,"spheres")
 
 def useOccColors(sel="all"):	
 	d = {}

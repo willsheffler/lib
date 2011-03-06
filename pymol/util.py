@@ -216,9 +216,9 @@ def rotation_matrix_radians(axis,angle):
 def rotation_matrix(axis,angle):
    return rotation_matrix_radians(axis,angle*math.pi/180.0)
 
-def com(sel="all"):
+def com(sel="all",state=1):
    ## assumes equal weights (best called with "and name ca" suffix)
-   model = cmd.get_model(sel)
+   model = cmd.get_model(sel,state)
    c = Vec(0)
    for a in model.atom:
       c += Vec(a.coord)
@@ -475,8 +475,8 @@ def trans(sel,x,y=None,z=None):
    # cmd.do("alter_state 1,%s,z=z+ %f"%(sel,float(z)))
 cmd.extend("trans",trans)
 
-def rot(sel,axis,ang,cen=None):
-   if cen is None: cen = com(sel)
+def rot(sel,axis,ang,cen=Vec(0,0,0)):
+   # if cen is None: cen = com(sel)
    cmd.rotate([axis.x,axis.y,axis.z],ang,sel,0,0,None,[cen.x,cen.y,cen.z])
    # R = rotation_matrix(axis,ang)
    # m = cmd.get_model(sel)
@@ -500,7 +500,7 @@ def pointaxis(sel):
    return axis.normalized()
    
 
-def alignaxis(sel,newaxis,oldaxis=None,cen=None):
+def alignaxis(sel,newaxis,oldaxis=None,cen=Vec(0,0,0)):
    if oldaxis is None: oldaxis = pointaxis(sel)
    if cen is None: cen = com(sel)
    newaxis.normalize()
@@ -627,7 +627,7 @@ def mkhelix4(sel,t,r,n):
 #PyMOL>run /Users/sheffler/pymol_scripts/util.py; mkhelix4("4hel* and vis",10.2,-23.9,12)	
 
 
-def mirror(sel,nname):
+def mirror(sel,nname="mirror",crd=0):
 	cmd.delete(nname)
 	a = [Vec(x.coord) for x in cmd.get_model(sel).atom]
 	#print max(d), argmax(d), cmd.get_model("179L").atom[argmax(d)].resi
@@ -635,7 +635,7 @@ def mirror(sel,nname):
 	cmd.create(nname,sel)
 	m = cmd.get_model(sel)
 	for j in range(len(m.atom)):
-		m.atom[j].coord[0] *= -1
+		m.atom[j].coord[crd] *= -1
 	cmd.load_model(m,nname,1)
 	
 def inversion(sel,nname="inv"):
@@ -787,4 +787,124 @@ def test_conelineinter(sele):
 		drawlines(x,(x-(v-o)).normalized(),"LB"+str(i))		
 		
 	
-	
+######################### rosettaholes stuff ###################
+
+def useRosettaRadii():
+	cmd.alter("element C", "vdw=2.00")
+	cmd.alter("element N", "vdw=1.75")
+	cmd.alter("element O", "vdw=1.55")
+	cmd.alter("element H", "vdw=1.00")
+	cmd.alter("element P", "vdw=2.15")
+	cmd.alter("element S", "vdw=1.90")
+	cmd.alter("element RE", "vdw=1.40")
+	cmd.alter("element CU", "vdw=1.40")
+	cmd.set("sphere_scale", 1.0)
+
+def expandRadii(delta=1.0, sel='all'):
+	for a in cmd.get_model(sel).atom:	
+		r = float(a.vdw) + float(delta)
+		cmd.alter("index "+`a.index`,'vdw='+`r`)
+	cmd.rebuild(sel,"spheres")
+
+def contractRadii(delta=1.0, sel='all'):
+	for a in cmd.get_model(sel).atom:	
+		r = float(a.vdw) - float(delta)
+		cmd.alter("index "+`a.index`,'vdw='+`r`)
+	cmd.rebuild(sel,"spheres")
+
+def useOccColors(sel="all"):	
+	d = {}
+	for a in cmd.get_model().atom:
+		d[a.q] = True
+	colors = rainbow
+   # random.shuffle(colors)
+   # colors *= len(d)/len(colors)+1
+	for ii in range(len(d.keys())):
+		cmd.color( colors[ii] ,"%s and q=%i"%(sel,d.keys()[ii]))
+
+def useTempColors(sel="all"):
+	for a in cmd.get_model(sel).atom:
+		q = a.b
+		c = intcolors[ int(floor(q))%len(intcolors) ]
+		cmd.color( c ,"%s and resi %s and name %s"%(sel,a.resi,a.name))
+
+
+def useOccRadii(sel="all"):
+	for a in cmd.get_model(sel).atom:
+		q = a.q
+		if q >= 3:
+			print "shrik radius"
+			q <- 0.1
+		cmd.alter("%s and resi %s and name %s"%(sel,a.resi,a.name),"vdw=%f"%(q))
+	cmd.rebuild()
+
+def useTempRadii(sel="all"):
+	for ii in range(30):
+		radius = "%0.1f"%(float(ii+1)/10)
+		cmd.alter(sel+" and b="+radius,"vdw="+radius)
+	cmd.rebuild()
+
+
+
+
+
+
+
+
+
+
+
+def dimeraxis(sele,alignsele=None,chains=["A","B"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	trans(sele,-com(alignsele))
+	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
+	b = cmd.get_model(alignsele+" and chain "+chains[1]+" and name CA").atom
+	if len(a) != len(b) or len(a) == 0:
+		print "ERROR on %s: subunits are not the same size!"%alignsele
+		return False
+	axis = Vec(0,0,0)
+	for i in range(len(a)):
+		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord) ).normalized()
+		if axis.length() > 0.0001 and axis.dot(axis1) < 0:
+			axis1 *= -1
+		axis += axis1		
+		# print axis1
+	axis.normalize()
+	return axis
+
+def aligndimer(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B"]):
+	if alignsele is None: alignsele = sele
+	axis = dimeraxis(sele,alignsele,chains)
+	# print "axis of rotation:",axis
+	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
+	return True
+
+def trimeraxis(sele,alignsele=None,chains=["A","B","C"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	trans(sele,-com(alignsele))
+	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
+	b = cmd.get_model(alignsele+" and chain "+chains[1]+" and name CA").atom
+	c = cmd.get_model(alignsele+" and chain "+chains[2]+" and name CA").atom
+	# print "subunit lengths:",len(a),len(b),len(c)
+	if len(a) != len(b) or len(a) != len(c) or len(a) == 0:
+		print "ERROR on %s: subunits are not the same size!"%alignsele
+		return False
+	axis = Vec(0,0,0)
+	for i in range(len(a)):
+		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord)+Vec(c[i].coord) ).normalized()
+		if axis.length() > 0.0001 and axis.dot(axis1) < 0:
+			axis1 *= -1
+		axis += axis1		
+		# print axis1
+	axis.normalize()
+	return axis
+
+def aligntrimer(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	axis = trimeraxis(sele,alignsele,chains)
+	# print "axis of rotation:",axis
+	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
+	return True
