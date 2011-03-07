@@ -926,3 +926,23 @@ def aligntrimer(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C"]):
 	# print "axis of rotation:",axis
 	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
 	return True
+
+def untangle_sidechains(sele):
+	for c,i in getres(sele):
+		if c != "":	cmd.unbond("%s and resi %i and chain %s and not name N+C"%(sele,i,c),"not (%s and resi %i and chain %s)"%(sele,i,c))
+		else:      	cmd.unbond("%s and resi %i and              not name N+C"%(sele,i  ),"not (%s and resi %i             )"%(sele,i  ))
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
