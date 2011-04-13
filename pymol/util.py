@@ -1092,9 +1092,8 @@ def processhomomers():
          cmd.delete("all")
          cmd.load(f)
          try:
-            pickandfixchains(n)
-            cmd.alter("all","chain='A'")
-            cmd.save("c%ia/"%n+f[3:-3])
+            c = pickandfixchains(n)
+            cmd.save("c%ia/"%n+f[3:-3],"chain %s"%c)
          except:
             print "fail on",f
    o.close()
