@@ -1086,15 +1086,17 @@ def pickandfixchains(N,sel="all"):
 def processhomomers():
    o = open("log",'w')
    for n in (2,3,4,5):
-      for f in glob.glob("c%i/*.pdb?.gz"%n):
+      files = glob.glob("c%ipdb/*.pdb.gz"%n)
+      random.shuffle(files)
+      for f in files:
          o.write(f+"\n")
          o.flush()
          cmd.delete("all")
-         cmd.load(f)
          try:
+            cmd.load(f)
             pickandfixchains(n)
             cmd.alter("all","chain='A'")
-            cmd.save("c%ia/"%n+f[3:-3])
+            cmd.save("c%ipdba/"%n+f[6:-3])
          except:
             print "fail on",f
    o.close()
