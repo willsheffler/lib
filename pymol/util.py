@@ -10,6 +10,14 @@ import random
 numcom = 0
 
 
+def getchain(sele):
+   try:
+      c = list(sets.Set([x.chain for x in cmd.get_model(sele).atom]))
+      c.sort()
+      return c
+   except:
+      return []
+   
 def getres(sele):
    try:
       r = list(sets.Set([(x.chain,int(x.resi)) for x in cmd.get_model(sele).atom]))
@@ -864,15 +872,46 @@ def useTempRadii(sel="all"):
 
 
 
+######## general utils #############
 
+def natom(sel="all"):
+   return cmd.select(sel)
 
+def nca(sel="all"):
+   return natom("( "+sel+" and (name ca))")
 
+def chaincount(sel="all"):
+   cc = []
+   for c in getchain(sel):
+      cc.append((cmd.select("( "+sel+") and (chain %s)"%c),c))
+   cc.sort()
+   return cc
 
+name1 = {"ALA":"A","CYS":"C","ASP":"D","GLU":"E","PHE":"F","GLY":"G","HIS":"H","ILE":"I","LYS":"K","LEU":"L",
+         "MET":"M","ASN":"N","PRO":"P","GLN":"Q","ARG":"R","SER":"S","THR":"T","VAL":"V","TRP":"W","TYR":"Y"}
+
+def lcs(S,T):
+    L = {}
+    z = 0
+    ret = 0,-1,0,-1
+    for i in range(len(S)):
+       for j in range(len(T)):
+          L[(i,j)] = 0
+          if S[i] == T[j]:
+             if i == 0 or j == 0:
+                L[(i,j)] = 1
+             else: 
+                L[(i,j)] = L[(i-1,j-1)] + 1
+             if L[(i,j)] > z: 
+                z = L[i,j]
+                ret = i-z+1,i,j-z+1,j
+    return ret
 
 ################## symmetry utils ###################
 
 
-def dimeraxis(sele,alignsele=None,chains=["A","B"]):
+
+def c2axis(sele,alignsele=None,chains=["A","B"]):
 	if alignsele is None: alignsele = sele
 	cmd.remove(sele+" and resn HOH")
 	trans(sele,-com(alignsele))
@@ -891,14 +930,14 @@ def dimeraxis(sele,alignsele=None,chains=["A","B"]):
 	axis.normalize()
 	return axis
 
-def aligndimer(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B"]):
+def alignc2(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B"]):
 	if alignsele is None: alignsele = sele
-	axis = dimeraxis(sele,alignsele,chains)
+	axis = c2axis(sele,alignsele,chains)
 	# print "axis of rotation:",axis
 	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
 	return True
 
-def trimeraxis(sele,alignsele=None,chains=["A","B","C"]):
+def c3axis(sele,alignsele=None,chains=["A","B","C"]):
 	if alignsele is None: alignsele = sele
 	cmd.remove(sele+" and resn HOH")
 	trans(sele,-com(alignsele))
@@ -919,13 +958,148 @@ def trimeraxis(sele,alignsele=None,chains=["A","B","C"]):
 	axis.normalize()
 	return axis
 
-def aligntrimer(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C"]):
+def alignc3(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C"]):
 	if alignsele is None: alignsele = sele
 	cmd.remove(sele+" and resn HOH")
-	axis = trimeraxis(sele,alignsele,chains)
+	axis = c3axis(sele,alignsele,chains)
 	# print "axis of rotation:",axis
 	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
 	return True
+
+def c4axis(sele,alignsele=None,chains=["A","B","C","D"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	trans(sele,-com(alignsele))
+	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
+	b = cmd.get_model(alignsele+" and chain "+chains[1]+" and name CA").atom
+	c = cmd.get_model(alignsele+" and chain "+chains[2]+" and name CA").atom
+	d = cmd.get_model(alignsele+" and chain "+chains[3]+" and name CA").atom
+	# print "subunit lengths:",len(a),len(b),len(c)
+	if len(a) != len(b) or len(a) != len(c) or len(a) == 0 or len(d) != len(a):
+		print "ERROR on %s: subunits are not the same size!"%alignsele
+		return False
+	axis = Vec(0,0,0)
+	for i in range(len(a)):
+		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord)+Vec(c[i].coord)+Vec(d[i].coord) ).normalized()
+		if axis.length() > 0.0001 and axis.dot(axis1) < 0:
+			axis1 *= -1
+		axis += axis1		
+		# print axis1
+	axis.normalize()
+	return axis
+
+def alignc4(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C","D"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	axis = c3axis(sele,alignsele,chains)
+	# print "axis of rotation:",axis
+	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
+	return True
+
+def c5axis(sele,alignsele=None,chains=["A","B","C","D","E"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	trans(sele,-com(alignsele))
+	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
+	b = cmd.get_model(alignsele+" and chain "+chains[1]+" and name CA").atom
+	c = cmd.get_model(alignsele+" and chain "+chains[2]+" and name CA").atom
+	d = cmd.get_model(alignsele+" and chain "+chains[3]+" and name CA").atom
+	e = cmd.get_model(alignsele+" and chain "+chains[4]+" and name CA").atom
+	# print "subunit lengths:",len(a),len(b),len(c)
+	if len(a) != len(b) or len(a) != len(c) or len(a) == 0:
+		print "ERROR on %s: subunits are not the same size!"%alignsele
+		return False
+	axis = Vec(0,0,0)
+	for i in range(len(a)):
+		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord)+Vec(c[i].coord)+Vec(d[i].coord)+Vec(e[i].coord) ).normalized()
+		if axis.length() > 0.0001 and axis.dot(axis1) < 0:
+			axis1 *= -1
+		axis += axis1		
+		# print axis1
+	axis.normalize()
+	return axis
+
+def alignc5(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C","D","E"]):
+	if alignsele is None: alignsele = sele
+	cmd.remove(sele+" and resn HOH")
+	axis = c5axis(sele=sele,alignsele=alignsele,chains=chains)
+	print "axis of rotation:",axis,"to",tgtaxis
+	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
+	return True
+
+def homogenizechains(sel,ca,cb):
+   cmd.remove("hydro")
+   cmd.remove("resn HOH")
+   cmd.remove("not resn ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR")
+   a = cmd.get_model("%s and chain %s and name ca"%(sel,ca))
+   b = cmd.get_model("%s and chain %s and name ca"%(sel,cb))
+   sa = "".join([name1[x.resn] for x in a.atom])
+   sb = "".join([name1[x.resn] for x in b.atom])
+   if sa==sb: return True
+   ra = [int(x.resi) for x in a.atom]
+   rb = [int(x.resi) for x in b.atom]
+#   if max(ra) - min(ra) + 1 != len(ra): print "missing residue numbers",max(ra),min(ra),len(ra)
+#   if max(rb) - min(rb) + 1 != len(rb): print "missing residue numbers",rb
+   mla,mua,mlb,mub = lcs(sa,sb)
+   bla,bua,blb,bub = lcs(sa[  :mla],sb[  :mlb])
+   ala,aua,alb,aub = lcs(sa[mua+1:],sb[mub+1:])
+   ra = ra[mla:(mua+1)]
+   rb = rb[mlb:(mub+1)]
+   if len(ra[bla:(bua+1)]) > 10:
+      ra = ra[bla:(bua+1)] + ra[mla:(mua+1)] + ra[ala:(aua+1)]
+      rb = rb[blb:(bub+1)] + rb[mlb:(mub+1)] + rb[alb:(aub+1)]
+   if len(ra[ala:(aua+1)]) > 10:
+      ra += ra[ala:(aua+1)]
+      rb += rb[alb:(aub+1)]      
+   for c,i in getres("%s and chain %s"%(sel,ca)):
+      if not i in ra: cmd.remove("%s and chain %s and resi %i"%(sel,ca,i))
+   for c,i in getres("%s and chain %s"%(sel,cb)):
+      if not i in rb: cmd.remove("%s and chain %s and resi %i"%(sel,cb,i))   
+   return False
+
+def pickandfixchains(N,sel="all"):
+   # find chains 
+   # homogenize all pairs until fixed
+   cc = []
+   for c in getchain(sel):
+      cc.append((-cmd.select("%s and chain %s and name CA"%(sel,c)),c))
+   cc.sort()
+   chains = [x[1] for x in cc[:N]]
+   done = False
+   count = 0
+   while not done:
+      if count > 10: break
+      count += 1
+      done = True;
+      random.shuffle(chains)
+      for i in range(1,len(chains)):
+         done = done and homogenizechains(sel,chains[0],chains[i])
+   print chains
+   if N is 2: alignc2(sel,"name ca",chains=chains)
+   if N is 3: alignc3(sel,"name ca",chains=chains)
+   if N is 4: alignc4(sel,"name ca",chains=chains)
+   if N is 5: alignc5(sel,"name ca",chains=chains)
+   chains.sort()
+   return chains[0]
+   
+
+def processhomomers():
+   o = open("log",'w')
+   for n in (2,3,4,5):
+      for f in glob.glob("c%i/*.pdb?.gz"%n):
+         o.write(f+"\n")
+         o.flush()
+         cmd.delete("all")
+         cmd.load(f)
+         try:
+            pickandfixchains(n)
+            cmd.alter("all","chain='A'")
+            cmd.save("c%ia/"%n+f[3:-3])
+         except:
+            print "fail on",f
+   o.close()
+
+
 
 def untangle_sidechains(sele):
 	for c,i in getres(sele):
