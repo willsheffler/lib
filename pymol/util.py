@@ -57,16 +57,11 @@ class Vec(object):
    def __rmul__(u,a):
       return u*a
    def __add__(u,v):
-      if type(v) is type(u):
-         return Vec(u.x+v.x,u.y+v.y,u.z+v.z)
-      else:
-         assert type(v) in (type(0),type(0.0))
-         # print type(v),type(u.x),type(u.y),type(u.z)
-         return Vec(u.x+v,u.y+v,u.z+v)
+      return Vec(u.x+v.x,u.y+v.y,u.z+v.z)
    def __radd__(u,v):
       return u+v
    def __sub__(u,v):
-      return u+(-v)
+      return Vec(u.x-v.x,u.y-v.y,u.z-v.z)
    def __rsub__(u,v):
       return u+(-v)
    def __neg__(u):
@@ -93,10 +88,13 @@ class Vec(object):
    def cgofrompoint(a,c):
       return [
             COLOR, 1.0, 1.0, 1.0,     
-            SPHERE,  c.x, c.y, c.z, 1.0,
+            SPHERE,  c.x, c.y, c.z, 0.2,
             CYLINDER,c.x    ,c.y    ,c.z    ,
-                     c.x+a.x,c.y+a.y,c.z+a.z,0.5,
+                     c.x+a.x,c.y+a.y,c.z+a.z,0.1,
                      1,1,1,1,1,1, ]
+   def show(self,lab='p'):
+      cmd.delete(lab)
+      cmd.load_cgo(self.cgo(),lab)
    def outer(u,v):
 		return Mat( u.x*v.x, u.x*v.y, u.x*v.z,
 		            u.y*v.x, u.y*v.y, u.y*v.z,
@@ -474,24 +472,25 @@ def bond_zns(sel):
 cmd.extend("bond_zns",bond_zns)
  
    
-def trans(sel,x,y=None,z=None):
-   if type(x) is type(Vec(0)):
-      x,y,z = x.x,x.y,x.z
+def trans(sel,v):
+   x,y,z = v.x,v.y,v.z
    cmd.translate([x,y,z],sel,0,0)
-   # cmd.do("alter_state 1,%s,x=x+ %f"%(sel,float(x)))
-   # cmd.do("alter_state 1,%s,y=y+ %f"%(sel,float(y)))
-   # cmd.do("alter_state 1,%s,z=z+ %f"%(sel,float(z)))
-cmd.extend("trans",trans)
+   #m = cmd.get_model(sel)
+   #for i in range(len(m.atom)):
+   #    tmp = Vec(m.atom[i].coord)
+   #    m.atom[i].coord = [tmp.x+x,tmp.y+y,tmp.z+z]
+   #cmd.load_model(m,sel,1,discrete=1)
+#cmd.extend("trans",trans)
 
 def rot(sel,axis,ang,cen=Vec(0,0,0)):
    # if cen is None: cen = com(sel)
    cmd.rotate([axis.x,axis.y,axis.z],ang,sel,0,0,None,[cen.x,cen.y,cen.z])
-   # R = rotation_matrix(axis,ang)
-   # m = cmd.get_model(sel)
-   # for i in range(len(m.atom)):
-   #     tmp = ( R * (Vec(m.atom[i].coord)-cen) ) + cen
-   #     m.atom[i].coord = [tmp.x,tmp.y,tmp.z]
-   # cmd.load_model(m,sel,1,discrete=1)
+#   R = rotation_matrix(axis,ang)
+#   m = cmd.get_model(sel)
+#   for i in range(len(m.atom)):
+#       tmp = ( R * (Vec(m.atom[i].coord)-cen) ) + cen
+#       m.atom[i].coord = [tmp.x,tmp.y,tmp.z]
+#   cmd.load_model(m,sel,1,discrete=1)
 
 def rotrad(sel,axis,ang,cen=None):
    return rot(sel,axis,ang*180.0/math.pi,cen)
@@ -672,6 +671,20 @@ def mkc4(sel,a=Vec(1,0,0),c=Vec(0,0,0)):
 	rot("c2",a, 90,c)
 	rot("c3",a,180,c)
 	rot("c4",a,270,c)		
+	
+def mkc3(sel,a=Vec(0,0,1),c=Vec(0,0,0)):
+	cmd.delete("c1")
+	cmd.delete("c2")
+	cmd.delete("c3")
+	cmd.create("c1",sel)
+	cmd.create("c2",sel)
+	cmd.create("c3",sel)
+	rot("c2",a,120,c)
+	rot("c3",a,240,c)
+        cmd.alter('c1','chain="A"')
+        cmd.alter('c2','chain="B"')
+        cmd.alter('c3','chain="C"')
+
 	
 def alignall(sel="all",obj=None):
 	l = cmd.get_object_list()
@@ -1111,13 +1124,93 @@ def untangle_sidechains(sele):
 	
 	
 	
+def orb_cyl(lab=""):
+   cmd.delete(lab+"o1")
+   cmd.delete(lab+"o2")
+   p1 = com('pk1')
+   p2 = com('pk2')
+   p3 = com('pk3')
+   dr = (p1-p2).normalized()
+   ax = (p3-p2).cross(p1-p2).normalized()
+   o1 = rotation_matrix(ax, 60.0)*dr
+   o2 = rotation_matrix(ax,-60.0)*dr
+   cmd.load_cgo(o1.cgofrompoint(p1),lab+"o1")
+   cmd.load_cgo(o2.cgofrompoint(p1),lab+"o2")
 	
 	
 	
 	
+"""
+delete lys2
+create lys2,lys1
+trans('lys2',-com('lys2 and name NZ'))
+alignaxis('lys2',Vec(0.942809043336065,0,-0.333333328372267),com('lys2 and name nz')-com('lys2 and name ce'))
+"""	
+
+
+   
 	
-	
-	
-	
-	
-	
+def drawring( p1=None, p2=None, p3=None, col=[1,1,1], lab="ring"):
+   if p1 is None: p1 = com('pk1')
+   if p2 is None: p2 = com('pk2')
+   if p3 is None: p3 = com('pk3')
+   cmd.delete(lab)
+   axs = (p2-p1).normalized()
+
+   obj = [ BEGIN, LINE_LOOP,   COLOR, col[0], col[1], col[2],  ]
+   for i in range(0,360,5):
+      st = rotation_matrix(axs,i  )*(p3-p2)+p2
+      obj.extend( [ VERTEX, st.x, st.y, st.z, ] )
+
+   obj.append( END )
+
+   cmd.load_cgo(obj,lab)
+
+
+def drawringcar( c, a, r, col=[1,1,1], lab="ring"):
+   cmd.delete(lab)
+   p1 = c
+   p2 = c+a
+   p3 = c + r*projperp(a,Vec(1,2,3)).normalized()
+   drawring(p1,p2,p3,col,lab)
+
+def drawsph(col=[1,1,1],lab="sph"):
+   cmd.delete(lab)
+   p1 = com('pk1')
+   p2 = com('pk2')
+   p3 = com('pk3')
+   p4 = com('pk4')
+   axs1 = (p2-p1).normalized()
+   axs2 = (p3-p2).normalized()
+
+   obj = [ BEGIN, ]
+   for i in range(0,360,10):
+      obj.extend( [ LINE_LOOP,   COLOR, col[0], col[1], col[2],  ] )
+      axs = rotation_matrix(axs1,i)*axs2
+      for j in range(0,360,3):
+         st = rotation_matrix(axs,j)*(p4-p2)+p2
+         obj.extend( [ VERTEX, st.x, st.y, st.z, ] )
+   obj.append( END )
+
+   cmd.load_cgo(obj,lab)
+
+
+def dsf(CA1,CB1,CA2,CB2):
+   c = CA1+(CB1-CA1).normalized()*2.27887
+   a = (CB1-CA1).normalized()
+   r = 1.6454076
+   drawringcar(c,a,r,[1,1,0],'cr')
+   d = a.dot(c-CB2)
+   r2 = sqrt( 3.4*3.4 - d*d )
+   c2 = CB2 + d*a
+   a2 = a
+   drawringcar(c2,a2,r2,[1,1,1],'cd')
+   d = (c-c2).length()
+   d2 = (r*r+d*d-r2*r2)/2/d
+   x = d2 * (c2-c).normalized() + c
+   h = sqrt(r*r - d2*d2)
+   a3 = a.cross(c2-c).normalized()
+   (x+h*a3).show('p1')
+   (x-h*a3).show('p2')
+
+   
