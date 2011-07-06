@@ -484,6 +484,9 @@ def trans(sel,v):
 
 def rot(sel,axis,ang,cen=Vec(0,0,0)):
    # if cen is None: cen = com(sel)
+   if abs(axis.x) < 0.00001: axis.x = 0.0
+   if abs(axis.y) < 0.00001: axis.y = 0.0
+   if abs(axis.z) < 0.00001: axis.z = 0.0
    cmd.rotate([axis.x,axis.y,axis.z],ang,sel,0,0,None,[cen.x,cen.y,cen.z])
 #   R = rotation_matrix(axis,ang)
 #   m = cmd.get_model(sel)
@@ -512,6 +515,7 @@ def alignaxis(sel,newaxis,oldaxis=None,cen=Vec(0,0,0)):
    if cen is None: cen = com(sel)
    newaxis.normalize()
    oldaxis.normalize()
+   if abs(oldaxis.dot(newaxis)) > 0.99999: return
    axis = newaxis.cross(oldaxis).normalized()
    ang  = -math.acos(max(-1.0,min(1.0,newaxis.dot(oldaxis))))*180/math.pi
    # print "rot around",axis,"by",ang
@@ -896,7 +900,7 @@ def nca(sel="all"):
 def chaincount(sel="all"):
    cc = []
    for c in getchain(sel):
-      cc.append((cmd.select("( "+sel+") and (chain %s)"%c),c))
+      cc.append((cmd.select("( "+sel+") and (chain %s) and (not HET)"%c),c))
    cc.sort()
    return cc
 
@@ -1040,12 +1044,12 @@ def alignc5(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C","D","E"])
 	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
 	return True
 
-def homogenizechains(sel,ca,cb):
+def homogenizechains(sel1,sel2):
    cmd.remove("hydro")
    cmd.remove("resn HOH")
    cmd.remove("not resn ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR")
-   a = cmd.get_model("%s and chain %s and name ca"%(sel,ca))
-   b = cmd.get_model("%s and chain %s and name ca"%(sel,cb))
+   a = cmd.get_model("%s and name ca"%(sel1))
+   b = cmd.get_model("%s and name ca"%(sel2))
    sa = "".join([name1[x.resn] for x in a.atom])
    sb = "".join([name1[x.resn] for x in b.atom])
    if sa==sb: return True
@@ -1064,10 +1068,10 @@ def homogenizechains(sel,ca,cb):
    if len(ra[ala:(aua+1)]) > 10:
       ra += ra[ala:(aua+1)]
       rb += rb[alb:(aub+1)]      
-   for c,i in getres("%s and chain %s"%(sel,ca)):
-      if not i in ra: cmd.remove("%s and chain %s and resi %i"%(sel,ca,i))
-   for c,i in getres("%s and chain %s"%(sel,cb)):
-      if not i in rb: cmd.remove("%s and chain %s and resi %i"%(sel,cb,i))   
+   for c,i in getres("%s"%(sel1)):
+      if not i in ra: cmd.remove("%s and resi %i"%(sel1,i))
+   for c,i in getres("%s"%(sel2)):
+      if not i in rb: cmd.remove("%s and resi %i"%(sel2,i))   
    return False
 
 def pickandfixchains(N,sel="all"):
@@ -1112,6 +1116,82 @@ def processhomomers():
          except:
             print "fail on",f
    o.close()
+
+
+#############################################################################################################
+
+def iscontig(sel):
+   m = cmd.get_model(sel+" and name N+CA+C").atom
+   for i in range(1,len(m)):
+      if ( Vec(m[i-1].coord) - Vec(m[i].coord) ).length() > 1.8:  return False
+      return True
+
+def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
+   if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/C%i.list'%N
+   if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/C%i"%N
+   print outd
+   for pid in open(lfile).xreadlines():
+      pid = pid.strip()
+      pdb = pid[:4]
+      bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
+      #if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
+      fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
+      if not os.path.exists(fname): continue
+      #print pdb,bnum,fname
+      cmd.delete("all")
+      cmd.load(fname,'m')      
+      cmd.remove("resn HOH")
+      cmd.remove('not alt a+""')
+      if cmd.select("name CA") > N*250: continue
+      #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
+      #if hf > 0.1: continue
+      #cmd.remove("het")
+      if cmd.select('all',state=N) != 0:
+         for i in range(1,N+1):
+            cmd.create("sub%i"%i,"m and not HET",i,1)
+      else:
+         cc = chaincount("m")
+         if len(cc) < N: continue
+         for i in range(1,N+1):
+            cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
+      for i in range(1,N+1):
+         if iscontig("sub%i"%i):
+            cmd.create("mxatm","sub%i"%i)
+            break
+      if cmd.select("mxatm") < 100: continue
+      chains = ["sub%i"%i for i in range(1,N+1)]
+      done = False
+      while not done:
+         done = True
+         for i in range(len(chains)):
+            for j in range(i+1,len(chains)):
+               done = done and homogenizechains(chains[i],chains[j])
+      if cmd.select("sub1") < 100: continue
+      cm = com("sub*")
+      for i in range(1,N+1):
+         trans("sub%i"%i,-cm)
+      a = [cmd.get_model("sub%i and name CA"%i).atom for i in range(1,N+1)]
+      axis = Vec(0,0,0)
+      for i in range(len(a[0])):
+         axis1 = Vec(0,0,0)
+         for j in range(N): axis1 += Vec(a[j][i].coord)
+         if axis.length() > 0.0001 and axis.dot(axis1) < 0: axis1 *= -1
+         axis += axis1		
+      axis.normalize()
+      for i in range(1,N+1):
+         print i,axis
+         alignaxis("sub%i"%i,Vec(0,0,1),axis,Vec(0,0,0))
+      #cmd.create("final1","mxatm")
+      #cmd.create("final2","mxatm")
+      #cmd.create("final3","mxatm")
+      #cmd.align("final1","sub1")
+      #cmd.align("final2","sub2")
+      #cmd.align("final3","sub3")
+      #return
+      if not os.path.exists(outd): os.mkdir(outd)
+      cmd.align("mxatm","sub1")
+      cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
+
 
 
 
@@ -1195,22 +1275,22 @@ def drawsph(col=[1,1,1],lab="sph"):
    cmd.load_cgo(obj,lab)
 
 
-def dsf(CA1,CB1,CA2,CB2):
+def dsf(CA1,CB1,CA2,CB2,lab=''):
    c = CA1+(CB1-CA1).normalized()*2.27887
    a = (CB1-CA1).normalized()
    r = 1.6454076
-   drawringcar(c,a,r,[1,1,0],'cr')
+   drawringcar(c,a,r,[1,1,0],'cr'+lab)
    d = a.dot(c-CB2)
-   r2 = sqrt( 3.4*3.4 - d*d )
+   r2 = sqrt( 3.0*3.0 - d*d )
    c2 = CB2 + d*a
    a2 = a
-   drawringcar(c2,a2,r2,[1,1,1],'cd')
+   drawringcar(c2,a2,r2,[1,1,1],'cd'+lab)
    d = (c-c2).length()
    d2 = (r*r+d*d-r2*r2)/2/d
    x = d2 * (c2-c).normalized() + c
    h = sqrt(r*r - d2*d2)
    a3 = a.cross(c2-c).normalized()
-   (x+h*a3).show('p1')
-   (x-h*a3).show('p2')
+   (x+h*a3).show('p1'+lab)
+   (x-h*a3).show('p2'+lab)
 
    
