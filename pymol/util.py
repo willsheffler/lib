@@ -1044,6 +1044,12 @@ def alignc5(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C","D","E"])
 	alignaxis(sele,tgtaxis,axis,Vec(0,0,0))
 	return True
 
+def myint(s):
+   i = len(s)
+   while i > 0 and not s[:i].isdigit(): i -= 1
+   if not i: return None
+   return int(s[:i])
+
 def homogenizechains(sel1,sel2):
    cmd.remove("hydro")
    cmd.remove("resn HOH")
@@ -1053,8 +1059,8 @@ def homogenizechains(sel1,sel2):
    sa = "".join([name1[x.resn] for x in a.atom])
    sb = "".join([name1[x.resn] for x in b.atom])
    if sa==sb: return True
-   ra = [int(x.resi) for x in a.atom]
-   rb = [int(x.resi) for x in b.atom]
+   ra = [myint(x.resi) for x in a.atom]
+   rb = [myint(x.resi) for x in b.atom]
 #   if max(ra) - min(ra) + 1 != len(ra): print "missing residue numbers",max(ra),min(ra),len(ra)
 #   if max(rb) - min(rb) + 1 != len(rb): print "missing residue numbers",rb
    mla,mua,mlb,mub = lcs(sa,sb)
@@ -1132,9 +1138,10 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
    print outd
    for pid in open(lfile).xreadlines():
       pid = pid.strip()
+      print pid
       pdb = pid[:4]
       bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
-      #if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
+      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
       fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
       if not os.path.exists(fname): continue
       #print pdb,bnum,fname
@@ -1159,13 +1166,18 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
             cmd.create("mxatm","sub%i"%i)
             break
       if cmd.select("mxatm") < 100: continue
+      if cmd.select("name CA and mxatm") > 250: continue
       chains = ["sub%i"%i for i in range(1,N+1)]
       done = False
-      while not done:
+      count = 0
+      while not done and count < 50:
          done = True
+         random.shuffle(chains)
          for i in range(len(chains)):
             for j in range(i+1,len(chains)):
                done = done and homogenizechains(chains[i],chains[j])
+         count += 1
+      if count >= 50: continue
       if cmd.select("sub1") < 100: continue
       cm = com("sub*")
       for i in range(1,N+1):
@@ -1175,11 +1187,10 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
       for i in range(len(a[0])):
          axis1 = Vec(0,0,0)
          for j in range(N): axis1 += Vec(a[j][i].coord)
-         if axis.length() > 0.0001 and axis.dot(axis1) < 0: axis1 *= -1
+         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
          axis += axis1		
       axis.normalize()
       for i in range(1,N+1):
-         print i,axis
          alignaxis("sub%i"%i,Vec(0,0,1),axis,Vec(0,0,0))
       #cmd.create("final1","mxatm")
       #cmd.create("final2","mxatm")
@@ -1192,6 +1203,85 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
       cmd.align("mxatm","sub1")
       cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
 
+
+def procD2dat(lfile=None,biod="/data/biounit",outd=None):
+   N = 4
+   if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/D2.list'
+   if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/D2"
+   print outd
+   for pid in open(lfile).xreadlines():
+      pid = pid.strip()
+      print pid
+      pdb = pid[:4]
+      bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
+      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
+      fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
+      if not os.path.exists(fname): continue
+      #print pdb,bnum,fname
+      cmd.delete("all")
+      cmd.load(fname,'m')      
+      cmd.remove("resn HOH")
+      cmd.remove('not alt a+""')
+      #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
+      #if hf > 0.1: continue
+      #cmd.remove("het")
+      if cmd.select('all',state=N) != 0:
+         for i in range(1,N+1):
+            cmd.create("sub%i"%i,"m and not HET",i,1)
+      else:
+         cc = chaincount("m")
+         if len(cc) < N: continue
+         for i in range(1,N+1):
+            cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
+      for i in range(1,N+1):
+         if iscontig("sub%i"%i):
+            cmd.create("mxatm","sub%i"%i)
+            break
+      if cmd.select("name CA and mxatm") > 250: continue
+      if cmd.select("mxatm") < 100: continue
+      chains = ["sub%i"%i for i in range(1,N+1)]
+      done = False
+      count = 0
+      while not done and count < 50:
+         done = True
+         random.shuffle(chains)
+         for i in range(len(chains)):
+            for j in range(i+1,len(chains)):
+               done = done and homogenizechains(chains[i],chains[j])
+         count += 1
+      if count >= 50: continue
+      if cmd.select("sub1") < 100: continue
+      cm = com("sub*")
+      for i in range(1,N+1):
+         trans("sub%i"%i,-cm)
+      a = [cmd.get_model("sub%i and name CA"%i).atom for i in range(1,N+1)]
+      a1 = Vec(0,0,0)
+      for i in range(len(a[0])):
+         axis1 = Vec(a[0][i].coord) + Vec(a[1][i].coord)
+         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
+         a1 += axis1
+      a1.normalize()
+      for i in range(1,N+1):
+         alignaxis("sub%i"%i,Vec(1,0,0),a1,Vec(0,0,0))
+      a = [cmd.get_model("sub%i and name CA"%i).atom for i in range(1,N+1)]
+      a1 = Vec(0,0,0)
+      for i in range(len(a[0])):
+         axis1 = Vec(a[0][i].coord) + Vec(a[2][i].coord)
+         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
+         a1 += axis1
+      a1.normalize()
+      for i in range(1,N+1):
+         alignaxis("sub%i"%i,Vec(0,1,0),a1,Vec(0,0,0))
+      #cmd.create("final1","mxatm")
+      #cmd.create("final2","mxatm")
+      #cmd.create("final3","mxatm")
+      #cmd.align("final1","sub1")
+      #cmd.align("final2","sub2")
+      #cmd.align("final3","sub3")
+      if not os.path.exists(outd): os.mkdir(outd)
+      cmd.align("mxatm","sub1")
+      cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
+      #return
 
 
 
