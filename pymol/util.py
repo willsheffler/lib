@@ -930,6 +930,8 @@ def lcs(S,T):
 
 def c2axis(sele,alignsele=None,chains=["A","B"]):
 	if alignsele is None: alignsele = sele
+        #cmd.create('tmp98367598',sele)        
+        #sele = 'tmp98367598'
 	cmd.remove(sele+" and resn HOH")
 	trans(sele,-com(alignsele))
 	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
@@ -945,6 +947,7 @@ def c2axis(sele,alignsele=None,chains=["A","B"]):
 		axis += axis1		
 		# print axis1
 	axis.normalize()
+        #cmd.delete('tmp98367598')
 	return axis
 
 def alignc2(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B"]):
@@ -956,6 +959,8 @@ def alignc2(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B"]):
 
 def c3axis(sele,alignsele=None,chains=["A","B","C"]):
 	if alignsele is None: alignsele = sele
+        #cmd.create('tmp98367598',sele)        
+        #sele = 'tmp98367598'
 	cmd.remove(sele+" and resn HOH")
 	trans(sele,-com(alignsele))
 	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
@@ -973,6 +978,7 @@ def c3axis(sele,alignsele=None,chains=["A","B","C"]):
 		axis += axis1		
 		# print axis1
 	axis.normalize()
+        #cmd.delete('tmp98367598')
 	return axis
 
 def alignc3(sele,alignsele=None,tgtaxis=Vec(0,0,1),chains=["A","B","C"]):
@@ -1136,20 +1142,24 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
    if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/C%i.list'%N
    if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/C%i"%N
    print outd
+   Nnobio=0; Nok=0;  Nbig=0; Nnsym=0; Nnomxatm=0; Nhomogen=0
    for pid in open(lfile).xreadlines():
       pid = pid.strip()
-      print pid
+      #print pid
       pdb = pid[:4]
       bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
-      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
+      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb") or os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb.gz"): 
+         Nok += 1
+         continue
       fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
-      if not os.path.exists(fname): continue
+      if not os.path.exists(fname): 
+         Nnobio += 1
+         continue
       #print pdb,bnum,fname
       cmd.delete("all")
       cmd.load(fname,'m')      
       cmd.remove("resn HOH")
       cmd.remove('not alt a+""')
-      if cmd.select("name CA") > N*250: continue
       #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
       #if hf > 0.1: continue
       #cmd.remove("het")
@@ -1158,15 +1168,21 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
             cmd.create("sub%i"%i,"m and not HET",i,1)
       else:
          cc = chaincount("m")
-         if len(cc) < N: continue
+         if len(cc) < N: 
+            Nnsym += 1
+            continue
          for i in range(1,N+1):
             cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
       for i in range(1,N+1):
          if iscontig("sub%i"%i):
             cmd.create("mxatm","sub%i"%i)
             break
-      if cmd.select("mxatm") < 100: continue
-      if cmd.select("name CA and mxatm") > 250: continue
+      if cmd.select("mxatm") < 50: 
+         Nnomxatm += 1
+         continue
+      if cmd.select("name CA and mxatm") > 250: 
+         Nbig += 1
+         continue
       chains = ["sub%i"%i for i in range(1,N+1)]
       done = False
       count = 0
@@ -1177,8 +1193,12 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
             for j in range(i+1,len(chains)):
                done = done and homogenizechains(chains[i],chains[j])
          count += 1
-      if count >= 50: continue
-      if cmd.select("sub1") < 100: continue
+      if count >= 50: 
+         Nhomogen += 1
+         continue
+      if cmd.select("sub1") < 50: 
+         Nnomxatm += 1
+         continue
       cm = com("sub*")
       for i in range(1,N+1):
          trans("sub%i"%i,-cm)
@@ -1187,7 +1207,7 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
       for i in range(len(a[0])):
          axis1 = Vec(0,0,0)
          for j in range(N): axis1 += Vec(a[j][i].coord)
-         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
+         if axis1.length() > 0.0001 and axis.dot(axis1) < 0: axis1 *= -1
          axis += axis1		
       axis.normalize()
       for i in range(1,N+1):
@@ -1202,43 +1222,86 @@ def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
       if not os.path.exists(outd): os.mkdir(outd)
       cmd.align("mxatm","sub1")
       cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
-
+      Nok += 1
+   print Nok, Nbig, Nnsym, Nnobio, Nnomxatm, Nhomogen
 
 def procD2dat(lfile=None,biod="/data/biounit",outd=None):
    N = 4
    if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/D2.list'
    if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/D2"
    print outd
-   for pid in open(lfile).xreadlines():
+   Nnobio=0; Nok=0; Ncontact=0; Nbig=0; Nnsym=0; Nnomxatm=0; Nhomogen=0
+   for pid in open(lfile).readlines():
       pid = pid.strip()
-      print pid
+      #print pid
       pdb = pid[:4]
       bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
-      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb"): continue
+      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb") or os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb.gz"): 
+         Nok += 1
+         continue
       fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
-      if not os.path.exists(fname): continue
+      if not os.path.exists(fname): 
+         Nnobio += 1
+         continue
       #print pdb,bnum,fname
       cmd.delete("all")
+      print pid
       cmd.load(fname,'m')      
       cmd.remove("resn HOH")
       cmd.remove('not alt a+""')
       #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
       #if hf > 0.1: continue
       #cmd.remove("het")
-      if cmd.select('all',state=N) != 0:
+      if   cmd.select('all',state=4) != 0:
          for i in range(1,N+1):
             cmd.create("sub%i"%i,"m and not HET",i,1)
+      elif cmd.select('all',state=2) != 0:
+         cc = chaincount('m')
+         if len(cc) < 2:
+            Nnsym += 1
+            continue
+         cmd.create("sub1","m and chain %s and not HET"%(cc[0][1]),1,1)
+         cmd.create("sub2","m and chain %s and not HET"%(cc[1][1]),1,1)
+         cmd.create("sub3","m and chain %s and not HET"%(cc[0][1]),2,1)
+         cmd.create("sub4","m and chain %s and not HET"%(cc[1][1]),2,1)
       else:
          cc = chaincount("m")
-         if len(cc) < N: continue
-         for i in range(1,N+1):
-            cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
+         if len(cc) < N:
+            sym = cmd.get_symmetry("m")
+            if   sym[6] == "I 2 2 2":
+               trans('m',Vec(0,-sym[1],0))
+               print pid
+            #elif sym[6] == "P 21 21 2" and len(cc)==2:
+            #   trans('m',Vec(-sym[0]/2.0,-sym[1]/2.0,0))
+            #   cmd.create("sub1","m and chain %s and not HET"%(cc[0][1]),1,1)
+            #   cmd.create("sub2","m and chain %s and not HET"%(cc[1][1]),1,1)
+            #   cmd.create("sub3","m and chain %s and not HET"%(cc[0][1]),1,1)
+            #   cmd.create("sub4","m and chain %s and not HET"%(cc[1][1]),1,1)
+            #   rot("sub3",Vec(0,0,1),180,Vec(0,0,0))
+            #   rot("sub4",Vec(0,0,1),180,Vec(0,0,0))
+            elif sym[6] in ('C 1 2 1','P 21 21 21','P 62 2 2','P 64 2 2','P 65 2 2','P 63 2 2','P 61 2 2','C 2 2 21'):
+               Nnsym += 1
+               #if pid != "1y2k_2": return
+               continue           
+            else:
+               Nnsym += 1
+               continue#return
+            cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","m")
+            Nok += 1
+            continue
+         else:
+            for i in range(1,N+1):
+               cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
       for i in range(1,N+1):
          if iscontig("sub%i"%i):
             cmd.create("mxatm","sub%i"%i)
             break
-      if cmd.select("name CA and mxatm") > 250: continue
-      if cmd.select("mxatm") < 100: continue
+      if cmd.select("name CA and mxatm") > 250: 
+         Nbig += 1
+         continue
+      if cmd.select("mxatm") < 50: 
+         Nnomxatm += 1
+         continue
       chains = ["sub%i"%i for i in range(1,N+1)]
       done = False
       count = 0
@@ -1249,8 +1312,12 @@ def procD2dat(lfile=None,biod="/data/biounit",outd=None):
             for j in range(i+1,len(chains)):
                done = done and homogenizechains(chains[i],chains[j])
          count += 1
-      if count >= 50: continue
-      if cmd.select("sub1") < 100: continue
+      if count >= 50: 
+         Nhomogen += 1
+         continue
+      if cmd.select("sub1") < 50: 
+         Nnomxatm += 1
+         continue      
       cm = com("sub*")
       for i in range(1,N+1):
          trans("sub%i"%i,-cm)
@@ -1258,7 +1325,7 @@ def procD2dat(lfile=None,biod="/data/biounit",outd=None):
       a1 = Vec(0,0,0)
       for i in range(len(a[0])):
          axis1 = Vec(a[0][i].coord) + Vec(a[1][i].coord)
-         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
+         if axis1.length() > 0.0001 and a1.dot(axis1) < 0: axis1 *= -1
          a1 += axis1
       a1.normalize()
       for i in range(1,N+1):
@@ -1267,22 +1334,29 @@ def procD2dat(lfile=None,biod="/data/biounit",outd=None):
       a1 = Vec(0,0,0)
       for i in range(len(a[0])):
          axis1 = Vec(a[0][i].coord) + Vec(a[2][i].coord)
-         if axis1.length() > 0.0001 and axis1.dot(axis1) < 0: axis1 *= -1
+         if axis1.length() > 0.0001 and a1.dot(axis1) < 0: axis1 *= -1
          a1 += axis1
       a1.normalize()
       for i in range(1,N+1):
          alignaxis("sub%i"%i,Vec(0,1,0),a1,Vec(0,0,0))
-      #cmd.create("final1","mxatm")
-      #cmd.create("final2","mxatm")
-      #cmd.create("final3","mxatm")
-      #cmd.align("final1","sub1")
-      #cmd.align("final2","sub2")
-      #cmd.align("final3","sub3")
-      if not os.path.exists(outd): os.mkdir(outd)
       cmd.align("mxatm","sub1")
+      cmd.create("final2","mxatm")
+      cmd.create("final3","mxatm")
+      cmd.create("final4","mxatm")
+      rot('final2',Vec(1,0,0),180,Vec(0,0,0))
+      rot('final3',Vec(0,1,0),180,Vec(0,0,0))
+      rot('final4',Vec(0,0,1),180,Vec(0,0,0))
+      n1 = cmd.select('mxatm within 4 of final2')
+      n2 = cmd.select('mxatm within 4 of final3')
+      n3 = cmd.select('mxatm within 4 of final4')
+      if n1 < 10 and n2 < 10 and n3 < 10:
+         Ncontact += 1
+         continue
+      if not os.path.exists(outd): os.mkdir(outd)
       cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
+      Nok += 1
       #return
-
+   print Nok, Nbig, Nnsym, Ncontact, Nnobio, Nnomxatm, Nhomogen
 
 
 def untangle_sidechains(sele):
@@ -1384,3 +1458,77 @@ def dsf(CA1,CB1,CA2,CB2,lab=''):
    (x-h*a3).show('p2'+lab)
 
    
+def mkd2(sel="all"):
+   cmd.create("w",sel)
+   cmd.create("x","w")
+   cmd.create("y","w")
+   cmd.create("z","w")
+   rot('x',X,180,Vec(0,0,0))
+   rot('y',Y,180,Vec(0,0,0))
+   rot('z',Z,180,Vec(0,0,0))
+
+def mki213(sel='all'):
+   cmd.delete("i213_*")
+   cmd.delete('base80345769083457')
+   cmd.delete('tmp80345769083457')
+   c2 = com(sel)
+   c3 = Vec(0,0,0)
+   cmd.create( 'tmp80345769083457',sel)
+   a2 = c2axis('tmp80345769083457')
+   cmd.delete( 'tmp80345769083457')
+   a3 = Vec(0,0,1)
+   cmd.create('base80345769083457',sel+" and chain A and visible")
+   seenit = []
+   R2 = [rotation_matrix(a2,0),rotation_matrix(a2,180),]
+   R3 = [rotation_matrix(a3,0),rotation_matrix(a3,120),rotation_matrix(a3,240),]
+   C = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+   print a2,c2,a3,c3
+   for i21 in range(2):
+      for i32 in range(3):
+         for i22 in range(2):
+            for i33 in range(3):
+               for i23 in range(2):
+                  for i34 in range(3):
+                     for i24 in range(2):
+                        for i35 in range(3):
+                           for i25 in range(2):
+                              test = Vec(0,0,0)
+                              test = R2[i21]*(test-c2)+c2
+                              test = R3[i32]*(test-c3)+c3
+                              test = R2[i22]*(test-c2)+c2
+                              test = R3[i33]*(test-c3)+c3
+                              test = R2[i23]*(test-c2)+c2
+                              test = R3[i34]*(test-c3)+c3
+                              test = R2[i24]*(test-c2)+c2
+                              test = R3[i35]*(test-c3)+c3
+                              test = R2[i25]*(test-c2)+c2
+                              print test
+                              seen = False
+                              for xs in seenit:
+                                 if (xs-test).length() < 0.1:
+                                    seen = True
+                                    break
+                              if seen: continue
+                              else: seenit.append(test)                                 
+                              n = "i213_%i%i%i%i%i%i%i%i%i"%(i25,i35,i24,i34,i23,i33,i22,i32,i21)
+                              cmd.create(n,'base80345769083457')
+                              rot(n,a2,i21*180.0,c2)
+                              rot(n,a3,i32*120.0,c3)
+                              rot(n,a2,i22*180.0,c2)
+                              rot(n,a3,i33*120.0,c3)
+                              rot(n,a2,i23*180.0,c2)
+                              rot(n,a3,i34*120.0,c3)
+                              rot(n,a2,i24*180.0,c2)
+                              rot(n,a3,i35*120.0,c3)
+                              rot(n,a2,i25*180.0,c2)
+   print len(seenit)
+   cmd.delete('base80345769083457')
+
+
+
+def alignallrms(sele):
+   r = {}
+   for i in cmd.get_object_list(): 
+      r[i] = cmd.align('fr52re',i)[0]
+   for k,v in r.items():
+      if v < 2: print k,v
