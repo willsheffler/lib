@@ -1502,7 +1502,7 @@ def mki213(sel='all'):
                               test = R2[i24]*(test-c2)+c2
                               test = R3[i35]*(test-c3)+c3
                               test = R2[i25]*(test-c2)+c2
-                              print test
+                              #print test
                               seen = False
                               for xs in seenit:
                                  if (xs-test).length() < 0.1:
@@ -1525,6 +1525,15 @@ def mki213(sel='all'):
    cmd.delete('base80345769083457')
 
 
+def viewi213(sel="all"):
+	cmd.hide('ev')
+	cmd.show('rib')
+	mki213(sel)
+	cmd.show('car','not i213*')
+	cmd.hide('rib','not i213*')
+	cmd.show('lines','(byres (%s and not i213* and chain A) within 7.0 of (%s and not i213* and chain B))'%(sel,sel))
+	cmd.show('lines','(byres (%s and not i213* and chain B) within 7.0 of (%s and not i213* and chain A))'%(sel,sel))
+	
 
 def alignallrms(sele):
    r = {}
@@ -1532,3 +1541,6 @@ def alignallrms(sele):
       r[i] = cmd.align('fr52re',i)[0]
    for k,v in r.items():
       if v < 2: print k,v
+
+
+
