@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/Users/sheffler/lib")
+sys.path.append("/Users/sheffler/lib/python")
 from pymol import cmd
 from pymol.cgo import *
 from random import randrange
@@ -5,9 +8,78 @@ import glob
 import sets
 from math import sqrt
 import random
-# from vecmat import *
+from LA import *
 
 numcom = 0
+
+aa_1_3 = {
+  'A': 'ALA', 
+  'C': 'CYS', 
+  'D': 'ASP', 
+  'E': 'GLU', 
+  'F': 'PHE', 
+  'G': 'GLY', 
+  'H': 'HIS', 
+  'I': 'ILE', 
+  'K': 'LYS', 
+  'L': 'LEU', 
+  'M': 'MET', 
+  'N': 'ASN', 
+  'P': 'PRO', 
+  'Q': 'GLN', 
+  'R': 'ARG', 
+  'S': 'SER', 
+  'T': 'THR', 
+  'V': 'VAL', 
+  'W': 'TRP', 
+  'Y': 'TYR', 
+}
+
+aa_3_1 = {
+  'ALA' : 'A', 
+  'CYS' : 'C', 
+  'ASP' : 'D', 
+  'GLU' : 'E', 
+  'PHE' : 'F', 
+  'GLY' : 'G', 
+  'HIS' : 'H', 
+  'ILE' : 'I', 
+  'LYS' : 'K', 
+  'LEU' : 'L', 
+  'MET' : 'M', 
+  'ASN' : 'N', 
+  'PRO' : 'P', 
+  'GLN' : 'Q', 
+  'ARG' : 'R', 
+  'SER' : 'S', 
+  'THR' : 'T', 
+  'VAL' : 'V', 
+  'TRP' : 'W', 
+  'TYR' : 'Y', 
+}
+
+aa_types = {
+  'A': 'hydrophobic',
+  'C': 'cysteine',
+  'D': 'negative',
+  'E': 'negative',
+  'F': 'aromatic',
+  'G': 'hydrophobic',
+  'H': 'polar',
+  'I': 'hydrophobic',
+  'K': 'positive',
+  'L': 'hydrophobic',
+  'M': 'hydrophobic',
+  'N': 'polar',
+  'P': 'proline',
+  'Q': 'polar',
+  'R': 'positive',
+  'S': 'polar',
+  'T': 'polar',
+  'V': 'hydrophobic',
+  'W': 'aromatic',
+  'Y': 'aromatic',
+}
 
 
 def getchain(sele):
@@ -27,200 +99,6 @@ def getres(sele):
       return []
 
 
-class Vec(object):
-   def __init__(self,x,y=None,z=None):
-      if type(x) is type(self):
-         self.x,self.y,self.z = x.x,x.y,x.z
-      elif type(x) in (type([]),type((1,))):
-         self.x,self.y,self.z = x[0],x[1],x[2]
-      elif y is None:
-         if type(x) in (type(0),type(0.0)):
-            self.x,self.y,self.z = x,x,x
-         elif type(x) is type(Vec):
-            self.x,self.y,self.z = x.x,x.y,x.z
-      else:
-         self.x,self.y,self.z = float(x),float(y),float(z)
-   def dot(u,v):
-      return u.x*v.x+u.y*v.y+u.z*v.z
-   def length(u):
-      return math.sqrt(u.dot(u))
-   def cross(u,v):
-      return Vec(u.y*v.z-u.z*v.y,u.z*v.x-u.x*v.z,u.x*v.y-u.y*v.x)
-   def __mul__(u,a):
-      if type(a) is type(0) or type(a) is type(0.0):
-         return Vec(u.x*a,u.y*a,u.z*a)
-      elif type(a) is Vec: 
-         return u.dot(a)
-      else:
-         # print type(a)
-         assert False
-   def __rmul__(u,a):
-      return u*a
-   def __add__(u,v):
-      return Vec(u.x+v.x,u.y+v.y,u.z+v.z)
-   def __radd__(u,v):
-      return u+v
-   def __sub__(u,v):
-      return Vec(u.x-v.x,u.y-v.y,u.z-v.z)
-   def __rsub__(u,v):
-      return u+(-v)
-   def __neg__(u):
-      return Vec(-u.x,-u.y,-u.z)
-   def __div__(u,a):
-      return u*(1.0/a)
-   def __str__(self):
-      return "%f, %f, %f"%(self.x,self.y,self.z)
-   def __repr__(self):
-      return "Vec( %f, %f, %f )"%(self.x,self.y,self.z)
-   def normalize(u):
-      l = u.length()
-      u.x /= l
-      u.y /= l
-      u.z /= l
-   def normalized(u):
-      v = Vec(u)
-      u.normalize()
-      return u
-   def cgo(v,COL=(1,1,1)):
-      return [
-            COLOR, COL[0], COL[1], COL[2], 
-            SPHERE,  v.x, v.y, v.z, 0.2, ]
-   def cgofrompoint(a,c):
-      return [
-            COLOR, 1.0, 1.0, 1.0,     
-            SPHERE,  c.x, c.y, c.z, 0.2,
-            CYLINDER,c.x    ,c.y    ,c.z    ,
-                     c.x+a.x,c.y+a.y,c.z+a.z,0.1,
-                     1,1,1,1,1,1, ]
-   def show(self,lab='p'):
-      cmd.delete(lab)
-      cmd.load_cgo(self.cgo(),lab)
-   def outer(u,v):
-		return Mat( u.x*v.x, u.x*v.y, u.x*v.z,
-		            u.y*v.x, u.y*v.y, u.y*v.z,
-		            u.z*v.x, u.z*v.y, u.z*v.z		 )
-      
-      
-X = Vec(1,0,0)
-Y = Vec(0,1,0)
-Z = Vec(0,0,1)
-
-def randvec():
-	return Vec(random.gauss(0,1),random.gauss(0,1),random.gauss(0,1))
-
-class Mat(object):
-   """docstring for Mat"""
-   def __init__(self, xx=None, xy=None, xz=None, yx=None, yy=None, yz=None, zx=None, zy=None, zz=None):
-      super(Mat, self).__init__()
-      if xx is None: # identity default
-         self.xx = 1.0
-         self.yy = 1.0
-         self.zz = 1.0
-      if type(xx) in (type(0),type(0.0)):
-         self.xx = float(xx)
-         self.xy = float(xy)
-         self.xz = float(xz)
-         self.yx = float(yx)
-         self.yy = float(yy)
-         self.yz = float(yz)
-         self.zx = float(zx)
-         self.zy = float(zy)
-         self.zz = float(zz)
-      elif type(xx) is type(Vec(0)): # cols specified as vectors
-         self.xx = xx.x
-         self.xy = xy.x
-         self.xz = xz.x
-         self.yx = xx.y
-         self.yy = xy.y
-         self.yz = xz.y
-         self.zx = xx.z
-         self.zy = xy.z
-         self.zz = xz.z     
-      else:
-         assert false
-   def row(m,i):
-      assert type(i) is type(1)
-      if   i is 0: return Vec(m.xx,m.xy,m.xz)
-      elif i is 1: return Vec(m.yx,m.yy,m.yz)
-      elif i is 2: return Vec(m.zx,m.zy,m.zz)
-      else: assert 0 <= i and i <= 2
-   def col(m,i):
-      assert type(i) is type(1)
-      if   i is 0: return Vec(m.xx,m.yx,m.zx)
-      elif i is 1: return Vec(m.xy,m.yy,m.zy)
-      elif i is 2: return Vec(m.xz,m.yz,m.zz)
-      else: assert 0 <= i and i <= 2
-   def rowx(m): return m.row(0)
-   def rowy(m): return m.row(1)
-   def rowz(m): return m.row(2)      
-   def colx(m): return m.col(0)
-   def coly(m): return m.col(1)
-   def colz(m): return m.col(2)      
-   def __mul__(m,v):
-      if type(v) in(type(0),type(0.0)):
-         return Mat( v*m.xx, v*m.xy, v*m.xz, v*m.yx, v*m.yy, v*m.yz, v*m.zx, v*m.zy, v*m.zz )
-      elif type(v) is Vec:
-         return Vec( m.rowx()*v, m.rowy()*v, m.rowz()*v )
-      elif type(v) is Mat:
-         return Mat( m.rowx()*v.colx(), m.rowy()*v.colx(), m.rowz()*v.colx(),
-                     m.rowx()*v.coly(), m.rowy()*v.coly(), m.rowz()*v.coly(),
-                     m.rowx()*v.colz(), m.rowy()*v.colz(), m.rowz()*v.colz() )
-      else:
-         try:
-            return v.__rmul__(m)
-         except:
-            print type(v)
-            raise NotImplementedError
-   def __rmul__(m,v):
-      if type(v) in(type(0),type(0.0)):
-         return Mat( v*m.xx, v*m.xy, v*m.xz, v*m.yx, v*m.yy, v*m.yz, v*m.zx, v*m.zy, v*m.zz )
-      elif type(v) is Vec:
-         return Vec( m.colx()*v, m.coly()*v, m.colz()*v )
-      else:
-         try:
-            return v.__rmul__(m)
-         except:
-            print type(v)
-            raise NotImplementedError
-   def __div__(m,v):
-      return m*(1/v)
-   def __add__(m,v):
-      if type(v) in(type(0),type(0.0)):
-         return Mat( v+m.xx, v+m.xy, v+m.xz, v+m.yx, v+m.yy, v+m.yz, v+m.zx, v+m.zy, v+m.zz )
-      elif type(v) is Mat:
-         return Mat( v.xx+m.xx, v.xy+m.xy, v.xz+m.xz, v.yx+m.yx, v.yy+m.yy, v.yz+m.yz, v.zx+m.zx, v.zy+m.zy, v.zz+m.zz )
-      else:
-         try:
-            return v.__rmul__(m)
-         except:
-            print type(v)
-            raise NotImplementedError
-   def __sub__(m,v):
-      return m + -v
-   def __neg__(m):
-      return m * -1
-   def __str__(m):
-      return "Mat( "+str(m.rowx())+"\n     "+str(m.rowy())+"\n     "+str(m.rowz()) + "  )"
-   def transpose(m):
-      return Mat( m.xx, m.yx, m.zx, m.xy, m.yy, m.zy, m.xz, m.yz, m.zz )
-
-def projection_matrix(v):
-   m = Mat( v.x * v.x, v.x * v.y, v.x * v.z, v.y * v.x, v.y * v.y, v.y * v.z, v.z * v.x, v.z * v.y, v.z * v.z )
-   return m / v.dot(v)
-
-def rotation_matrix_radians(axis,angle):
-   n = axis.normalized()
-   sin_theta = math.sin( angle )
-   cos_theta = math.cos( angle )
-   R = projection_matrix(n)
-   R *= 1.0 - cos_theta
-   R.xx += cos_theta;       R.xy -= sin_theta * n.z; R.xz += sin_theta * n.y
-   R.yx += sin_theta * n.z; R.yy += cos_theta;       R.yz -= sin_theta * n.x
-   R.zx -= sin_theta * n.y; R.zy += sin_theta * n.x; R.zz += cos_theta
-   return R;
-
-def rotation_matrix(axis,angle):
-   return rotation_matrix_radians(axis,angle*math.pi/180.0)
 
 def com(sel="all",state=1):
    ## assumes equal weights (best called with "and name ca" suffix)
@@ -239,6 +117,18 @@ def showcom(sel="all"):
    cgo = [pymol.cgo.COLOR, 1.0, 1.0, 1.0, SPHERE, c.x, c.y, c.z, 1.0] ## white sphere with 3A radius
    cmd.load_cgo(cgo, "com%i"%numcom)
    numcom += 1
+
+
+
+
+
+def veccgofrompoint(a,c,lbl):
+    cmd.load_cgo( [
+          COLOR, 1.0, 1.0, 1.0,     
+          SPHERE,  c.x, c.y, c.z, 0.2,
+          CYLINDER,c.x    ,c.y    ,c.z    ,
+                   c.x+a.x,c.y+a.y,c.z+a.z,0.1,
+                   1,1,1,1,1,1, ],lbl)
 
 
 class Stub(object):
@@ -342,24 +232,6 @@ def chirality(fe1,fe2,fe3,fe4):
    b = fe3-fe1
    c = a.cross(b)
    return c.dot(fe4-fe1)
-
-
-def dihedral(p1,p2,p3,p4):
-   a = ( p2 - p1 ).normalized()
-   b = ( p3 - p2 ).normalized()
-   c = ( p4 - p3 ).normalized()
-   x = -a.dot(c) + a.dot(b) * b.dot(c)
-   y =  a.dot( b.cross(c) );
-   return abs(math.atan2(y,x)) * 180.0 / 3.14159
-
-
-def angle(p1,p2,p3=None):
-	if p3 is None:
-   		return math.acos( p1.normalized().dot(p2.normalized()) ) * 180.0 / 3.14159
-	else:
-   		a = ( p2 - p1 ).normalized()
-   		b = ( p2 - p3 ).normalized()
-   		return math.acos( a.dot(b) ) * 180.0 / 3.14159
 
 
 
@@ -685,9 +557,33 @@ def mkc3(sel,a=Vec(0,0,1),c=Vec(0,0,0)):
 	cmd.create("c3",sel)
 	rot("c2",a,120,c)
 	rot("c3",a,240,c)
-        cmd.alter('c1','chain="A"')
-        cmd.alter('c2','chain="B"')
-        cmd.alter('c3','chain="C"')
+	cmd.alter('c1','chain="A"')
+	cmd.alter('c2','chain="B"')
+	cmd.alter('c3','chain="C"')
+
+def mkc2(sel,a=Vec(0,0,1),c=Vec(0,0,0)):
+	cmd.delete("c1")
+	cmd.delete("c2")
+	cmd.create("c1",sel)
+	cmd.create("c2",sel)
+	rot("c2",a,180,c)
+	cmd.alter('c1','chain="A"')
+	cmd.alter('c2','chain="B"')
+
+
+def mkd2(sel="all"):
+	cmd.create("w",sel)
+	cmd.create("x","w")
+	cmd.create("y","w")
+	cmd.create("z","w")
+	rot('x',X,180,Vec(0,0,0))
+	rot('y',Y,180,Vec(0,0,0))
+	rot('z',Z,180,Vec(0,0,0))
+	cmd.alter('w','chain="A"')
+	cmd.alter('x','chain="B"')
+	cmd.alter('y','chain="C"')
+	cmd.alter('z','chain="D"')
+
 
 	
 def alignall(sel="all",obj=None):
@@ -962,7 +858,7 @@ def c3axis(sele,alignsele=None,chains=["A","B","C"]):
         #cmd.create('tmp98367598',sele)        
         #sele = 'tmp98367598'
 	cmd.remove(sele+" and resn HOH")
-	trans(sele,-com(alignsele))
+	cen = com(alignsele)
 	a = cmd.get_model(alignsele+" and chain "+chains[0]+" and name CA").atom
 	b = cmd.get_model(alignsele+" and chain "+chains[1]+" and name CA").atom
 	c = cmd.get_model(alignsele+" and chain "+chains[2]+" and name CA").atom
@@ -972,7 +868,7 @@ def c3axis(sele,alignsele=None,chains=["A","B","C"]):
 		return False
 	axis = Vec(0,0,0)
 	for i in range(len(a)):
-		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord)+Vec(c[i].coord) ).normalized()
+		axis1 = ( Vec(a[i].coord)+Vec(b[i].coord)+Vec(c[i].coord) - 3*cen ).normalized()
 		if axis.length() > 0.0001 and axis.dot(axis1) < 0:
 			axis1 *= -1
 		axis += axis1		
@@ -1139,113 +1035,117 @@ def iscontig(sel):
       return True
 
 def procCdat(N=3,lfile=None,biod="/data/biounit",outd=None):
-   if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/C%i.list'%N
-   if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/C%i"%N
+   if lfile is None: lfile='/Users/sheffler/project/sym_comp/meta/C%i.list'%N
+   if outd  is None:  outd="/Users/sheffler/project/sym_comp/C%i"%N
    print outd
    Nnobio=0; Nok=0;  Nbig=0; Nnsym=0; Nnomxatm=0; Nhomogen=0
-   for pid in open(lfile).xreadlines():
-      pid = pid.strip()
-      #print pid
-      pdb = pid[:4]
-      bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
-      if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb") or os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb.gz"): 
-         Nok += 1
-         continue
-      fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
-      if not os.path.exists(fname): 
-         Nnobio += 1
-         continue
-      #print pdb,bnum,fname
-      cmd.delete("all")
-      cmd.load(fname,'m')      
-      cmd.remove("resn HOH")
-      cmd.remove('not alt a+""')
-      #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
-      #if hf > 0.1: continue
-      #cmd.remove("het")
-      if cmd.select('all',state=N) != 0:
-         for i in range(1,N+1):
-            cmd.create("sub%i"%i,"m and not HET",i,1)
-      else:
-         cc = chaincount("m")
-         if len(cc) < N: 
-            Nnsym += 1
-            continue
-         for i in range(1,N+1):
-            cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
-      for i in range(1,N+1):
-         if iscontig("sub%i"%i):
-            cmd.create("mxatm","sub%i"%i)
-            break
-      if cmd.select("mxatm") < 50: 
-         Nnomxatm += 1
-         continue
-      if cmd.select("name CA and mxatm") > 250: 
-         Nbig += 1
-         continue
-      chains = ["sub%i"%i for i in range(1,N+1)]
-      done = False
-      count = 0
-      while not done and count < 50:
-         done = True
-         random.shuffle(chains)
-         for i in range(len(chains)):
-            for j in range(i+1,len(chains)):
-               done = done and homogenizechains(chains[i],chains[j])
-         count += 1
-      if count >= 50: 
-         Nhomogen += 1
-         continue
-      if cmd.select("sub1") < 50: 
-         Nnomxatm += 1
-         continue
-      cm = com("sub*")
-      for i in range(1,N+1):
-         trans("sub%i"%i,-cm)
-      a = [cmd.get_model("sub%i and name CA"%i).atom for i in range(1,N+1)]
-      axis = Vec(0,0,0)
-      for i in range(len(a[0])):
-         axis1 = Vec(0,0,0)
-         for j in range(N): axis1 += Vec(a[j][i].coord)
-         if axis1.length() > 0.0001 and axis.dot(axis1) < 0: axis1 *= -1
-         axis += axis1		
-      axis.normalize()
-      for i in range(1,N+1):
-         alignaxis("sub%i"%i,Vec(0,0,1),axis,Vec(0,0,0))
-      #cmd.create("final1","mxatm")
-      #cmd.create("final2","mxatm")
-      #cmd.create("final3","mxatm")
-      #cmd.align("final1","sub1")
-      #cmd.align("final2","sub2")
-      #cmd.align("final3","sub3")
-      #return
-      if not os.path.exists(outd): os.mkdir(outd)
-      cmd.align("mxatm","sub1")
-      cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
-      Nok += 1
-   print Nok, Nbig, Nnsym, Nnobio, Nnomxatm, Nhomogen
+   for fn in open(lfile).readlines():
+       try:
+            fn = fn.strip()
+            pdb = fn[3:7]
+            bnum = int(fn[-1:])
+            if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb") or os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb.gz"): 
+               Nok += 1
+               continue
+            fname = biod+"/"+fn
+            if not os.path.exists(fname):
+          	fname += ".gz"
+          	if not os.path.exists(fname):
+          		Nnobio += 1
+          		continue
+            cmd.delete("all")
+            cmd.load(fname,'m')      
+            cmd.remove("resn HOH")
+            cmd.remove('not alt a+""')
+            #hf = cmd.select("HET",state=1) / cmd.select("ALL",state=1)
+            #if hf > 0.1: continue
+            #cmd.remove("het")
+            if cmd.select('all',state=N) != 0:
+               for i in range(1,N+1):
+                  cmd.create("sub%i"%i,"m and not HET",i,1)
+            else:
+               cc = chaincount("m")
+               if len(cc) < N: 
+                  Nnsym += 1
+                  continue
+               for i in range(1,N+1):
+                  cmd.create("sub%i"%i,"m and chain %s and not HET"%(cc[-i][1]),1,1)
+            for i in range(1,N+1):
+               if iscontig("sub%i"%i):
+                  cmd.create("mxatm","sub%i"%i)
+                  break
+            if cmd.select("mxatm") < 50: 
+               Nnomxatm += 1
+               continue
+            if cmd.select("name CA and mxatm") > 250: 
+               Nbig += 1
+               continue
+            chains = ["sub%i"%i for i in range(1,N+1)]
+            done = False
+            count = 0
+            while not done and count < 50:
+               done = True
+               random.shuffle(chains)
+               for i in range(len(chains)):
+                  for j in range(i+1,len(chains)):
+                     done = done and homogenizechains(chains[i],chains[j])
+               count += 1
+            if count >= 50: 
+               Nhomogen += 1
+               continue
+            if cmd.select("sub1") < 50: 
+               Nnomxatm += 1
+               continue
+            cm = com("sub*")
+            for i in range(1,N+1):
+               trans("sub%i"%i,-cm)
+            a = [cmd.get_model("sub%i and name CA"%i).atom for i in range(1,N+1)]
+            axis = Vec(0,0,0)
+            for i in range(len(a[0])):
+               axis1 = Vec(0,0,0)
+               for j in range(N): axis1 += Vec(a[j][i].coord)
+               if axis1.length() > 0.0001 and axis.dot(axis1) < 0: axis1 *= -1
+               axis += axis1		
+            axis.normalize()
+            for i in range(1,N+1):
+               alignaxis("sub%i"%i,Vec(0,0,1),axis,Vec(0,0,0))
+            #cmd.create("final1","mxatm")
+            #cmd.create("final2","mxatm")
+            #cmd.create("final3","mxatm")
+            #cmd.align("final1","sub1")
+            #cmd.align("final2","sub2")
+            #cmd.align("final3","sub3")
+            #return
+            if not os.path.exists(outd): os.mkdir(outd)
+            cmd.align("mxatm","sub1")
+            cmd.save(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb","mxatm")
+            Nok += 1
+       except:
+        print "error on", fn
+       	pass
+	print Nok, Nbig, Nnsym, Nnobio, Nnomxatm, Nhomogen
 
 def procD2dat(lfile=None,biod="/data/biounit",outd=None):
    N = 4
-   if lfile is None: lfile='/Users/sheffler/scratch/sym_comp/D2.list'
-   if outd  is None:  outd="/Users/sheffler/scratch/sym_comp/D2"
+   if lfile is None: lfile='/Users/sheffler/project/sym_comp/meta/D2.list'
+   if outd  is None:  outd="/Users/sheffler/project/sym_comp/D2"
    print outd
    Nnobio=0; Nok=0; Ncontact=0; Nbig=0; Nnsym=0; Nnomxatm=0; Nhomogen=0
-   for pid in open(lfile).readlines():
-      pid = pid.strip()
-      #print pid
-      pdb = pid[:4]
-      bnum = 1 if len(pid)==4 else int(pid.split("_")[1])
+   for fn in open(lfile).readlines():
+      fn = fn.strip()
+      pdb = fn[3:7]
+      bnum = int(fn[-1:])
       if os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb") or os.path.exists(outd+"/"+pdb+"_"+str(bnum)+"_sub1.pdb.gz"): 
          Nok += 1
          continue
-      fname = biod+"/"+pdb[1:3]+"/"+pdb+".pdb"+str(bnum)+".gz"
-      if not os.path.exists(fname): 
-         Nnobio += 1
-         continue
+      fname = biod+"/"+fn
+      if not os.path.exists(fname):
+      	fname += ".gz"
+      if not os.path.exists(fname):
+     	Nnobio += 1
+     	continue
       #print pdb,bnum,fname
       cmd.delete("all")
-      print pid
       cmd.load(fname,'m')      
       cmd.remove("resn HOH")
       cmd.remove('not alt a+""')
@@ -1458,15 +1358,6 @@ def dsf(CA1,CB1,CA2,CB2,lab=''):
    (x-h*a3).show('p2'+lab)
 
    
-def mkd2(sel="all"):
-   cmd.create("w",sel)
-   cmd.create("x","w")
-   cmd.create("y","w")
-   cmd.create("z","w")
-   rot('x',X,180,Vec(0,0,0))
-   rot('y',Y,180,Vec(0,0,0))
-   rot('z',Z,180,Vec(0,0,0))
-
 def mki213(sel='all'):
    cmd.delete("i213_*")
    cmd.delete('base80345769083457')
@@ -1544,3 +1435,94 @@ def alignallrms(sele):
 
 
 
+def mkpntx(s1,s2):
+	x = com(s1)-com(s2)
+	if abs(x.x) > 0.1 or abs(x.y) > 0.1:
+		print "DIE!",x
+		return
+	z = x.z
+	c = Vec(0,z/2/math.tan(36.0*math.pi/180),z/2)
+	cmd.delete('p1');	cmd.delete('p2');	cmd.delete('p3');	cmd.delete('p4');	cmd.delete('p5'   )
+	cmd.create('p1',s1);cmd.create('p2',s1);cmd.create('p3',s1);cmd.create('p4',s1);cmd.create('p5',s1)
+	rot('p1',Vec(1,0,0),0*72,c)
+	rot('p2',Vec(1,0,0),1*72,c)
+	rot('p3',Vec(1,0,0),2*72,c)
+	rot('p4',Vec(1,0,0),3*72,c)
+	rot('p5',Vec(1,0,0),4*72,c)
+	cmd.color('green' ,'p1 and elem C')
+	cmd.color('cyan'  ,'p2 and elem C')
+	cmd.color('yellow','p3 and elem C')
+	cmd.color('magenta','p4 and elem C')
+	cmd.color('orange'   ,'p5 and elem C')
+	
+	
+def ifsphab():
+	cmd.show("spheres","((vis and chain A) within 6 of (vis and chain B)) or ((vis and chain B) within 6 of (vis and chain A))")
+	
+def ifsphab():
+	cmd.show("sticks","byres (((vis and chain C) within 8 of (vis and chain A)) or ((vis and chain B) within 8 of (vis and chain A)))")
+	cmd.show("sticks","chain A")
+	
+	
+def charge(sel):
+	p = cmd.select(sel+" and name CA and resn LYS+ARG")
+	n = cmd.select(sel+" and name CA and resn GLU+ASP")
+	print p-n
+
+def redopent(sel):
+	v = cmd.get_view()
+	cmd.remove("chain B+C+D+E")
+	cmd.delete("pnt*")
+	cmd.create("pntB",sel)
+	cmd.create("pntC",sel)
+	cmd.create("pntD",sel)
+	cmd.create("pntE",sel)			
+	rot("pntB",Vec(1,0,0), 72)
+	rot("pntC",Vec(1,0,0),144)
+	rot("pntD",Vec(1,0,0),216)
+	rot("pntE",Vec(1,0,0),288)			
+	cmd.color("green"   ,sel+" and elem C")
+	cmd.color("cyan"   ,"pntB and elem C")
+	cmd.color("magenta","pntC and elem C")
+	cmd.color("yellow" ,"pntD and elem C")
+	cmd.color("pink"   ,"pntE and elem C")		
+	cmd.alter("pntB","chain='B'")
+	cmd.alter("pntC","chain='C'")
+	cmd.alter("pntD","chain='D'")
+	cmd.alter("pntE","chain='E'")			
+	cmd.set_view(v)
+
+def getaa(c,r):
+	m = cmd.get_model("chain %s and resi %d"%(c,r))
+	return aa_3_1[m.atom[0].resn]
+
+def mkifaceresfile(fn=None):
+	sel="all"
+	cmd.delete("all")
+	cmd.load(fn)
+	fn += ".resfile"
+	o = sys.stdout
+	if fn: o = open(fn,'w')
+	print >>o,"""AUTO\nNATRO\n\nstart"""
+	for c,r in getres("(chain A and (%s)) within 5 of (chain B and (%s))"%(sel,sel)):
+		assert c == "A"
+		print >>o,"%4d A PIKAA %s"%(r,getaa(c,r))
+	if fn: o.close()
+
+
+
+
+
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
