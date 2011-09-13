@@ -1489,7 +1489,7 @@ def redopent(sel):
 	cmd.alter("pntB","chain='B'")
 	cmd.alter("pntC","chain='C'")
 	cmd.alter("pntD","chain='D'")
-	cmd.alter("pntE","chain='E'")			
+	cmd.alter("pntE","chain='E'")
 	cmd.set_view(v)
 
 def getaa(c,r):
