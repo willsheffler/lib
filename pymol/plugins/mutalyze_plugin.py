@@ -26,7 +26,7 @@ class MutalyzeGui(Frame):
 		self.crgu = Button(self.bf,textvariable=self.charge,command=self.manager.chargeupdate).pack({"side": "top"})
 		self.bf.pack({'side':'top'})
 		self.mutframe = Frame(master=self)
-		for m in d.mut:
+		for m in d.muts:
 			m.gui = self
 			f = Frame(self.mutframe)
 			e = Entry(f,width=8,textvariable=t)
@@ -42,6 +42,14 @@ class MutalyzeGui(Frame):
 
 
 class MutalyzeManager(object):
+	_m,_prevm = None,None
+	def setm(s,v): s._m,s._prevm=v,s._m
+	m     = property(fget=lambda s: s._m,fset=setm)
+	prevm = property(fget=lambda s: s._prevm)
+	_d,_prevd = None,None
+	def setd(s,v): s._d,s._prevd=v,s._d
+	d     = property(fget=lambda s: s._d,fset=setd)
+	prevd = property(fget=lambda s: s._prevd)
 	def __init__(self,master=None):
 		self.dir = "./output/"
 		files = [f for f in os.listdir(self.dir) if f.endswith('.pdb') or f.endswith('.pdb.gz')]
@@ -50,10 +58,9 @@ class MutalyzeManager(object):
 			files = [f for f in os.listdir(self.dir) if f.endswith('.pdb') or f.endswith('.pdb.gz')]
 		self.des = [Design(self.dir+f,self) for f in files]
 		self.d = self.des[0]
-		self.m = None
 		self.d.load()
 		self.gui = None
-		self.toggleshowhide = True
+		self.toggle = { 'togglenat':1,'lines':1,'cartoon':1,'all':1 }
 		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
 		cmd.extend("p"      ,lambda:           self.prev()         )
 		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
@@ -63,11 +70,14 @@ class MutalyzeManager(object):
 		cmd.extend("iall"   ,lambda:           self.showallinfo()  )
 		cmd.extend("j"      ,lambda:           self.showallinfo()  )
 		cmd.extend("r"      ,lambda:           self.revert()       )
-		cmd.extend("c"      ,lambda:           self.chargeupdate() )
 		cmd.extend("g"      ,lambda:           self.gui()          )
-		cmd.extend("h"      ,lambda:           self.showhide()     )
+		cmd.extend("h"      ,lambda:           self.toggleall()    )
+		cmd.extend("hn"     ,lambda:           self.togglenat()    )
 		cmd.extend("u"      ,lambda:           self.showbuns()     )
 		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
+		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
+		cmd.extend("c"      ,lambda:           self.togglerep("cartoon"))
+		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
 		cmd.extend("help"   ,lambda:           self.help()         )
 		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
 		cmd.extend("resfile",lambda:           self.printresfile() )
@@ -80,7 +90,7 @@ class MutalyzeManager(object):
 		cmd.extend("r"      ,lambda:           self.revert())
 		cmd.extend("c"      ,lambda:           self.chargeupdate())
 		cmd.extend("g"      ,lambda:           self.gui())
-		cmd.extend("h"      ,lambda:           self.showhide())
+		cmd.extend("h"      ,lambda:           self.toggle())
 		cmd.extend("u"      ,lambda:           self.showbuns())
 		cmd.extend("a"      ,lambda a:         self.addaa(a))		
 		cmd.extend("help"   ,lambda:           self.help())
@@ -88,29 +98,6 @@ class MutalyzeManager(object):
 		cmd.extend("resfile",lambda: self.resfile())
 		"""
 		print 'MutalyzeManager initialized managing %i designs'%len(self.des)
-	
-	def nextdesign(self,pid=None):
-		self.d.save()
-		if pid:
-			try: 
-				self.d = self.desmap[pid]
-				self.m = None
-			except KeyError as e:
-				print "no design for pdb",pid
-				print e
-				return
-		else:
-			try: 
-				self.d = self.des[self.des.index(self.d)+1]
-				self.m = None
-			except IndexError as e:
-				print "DONE!!!"
-				return
-		self.d.load()
-		print "now active:",self.d		
-	
-	def prevdesign(self):
-		print "not implemented!!!!"
 	
 	def help(self):
 		print self.helpstr
@@ -122,24 +109,33 @@ class MutalyzeManager(object):
 		root.destroy()
 	
 	def printresfile(self):
-		sp = max(len(dp.aas) for dp in self.d.muts)
 		print "####################### BEGIN RESFILE #######################"
 		print self.d.resfile()
 		print "######################## END RESFILE ########################"
 	
 	def reset_align(self):
 		cmd.align(self.d.muts[0].rnat.obj,self.d.muts[0].rdes.obj)
-		
+	
 	def showinfo(self):
 		self.m.showinfo()
 	
 	def showallinfo(self):
 		self.m.showallinfo()
 	
-	def showhide(self):
-		if self.toggleshowhide: cmd.disable("(not pseudo*)")
-		else:                   cmd.enable ("(not pseudo*)")
-		self.toggleshowhide = not self.toggleshowhide
+	def toggleall(self):
+		if self.toggle['all']: cmd.disable("(not pseudo*)")
+		else:                  cmd.enable ("(not pseudo*)")
+		self.toggle['all'] = not self.toggle['all']
+	
+	def togglenat(self):
+		if self.toggle['nat']: cmd.disable(self.d.pid)
+		else:                  cmd.enable (self.d.pid)
+		self.toggle['nat'] = not self.toggle['nat']
+	
+	def togglerep(self,rep):
+		if self.toggle[rep]: cmd.hide(rep)
+		else:                    cmd.show(rep)
+		self.toggle[rep] = not self.toggle[rep]		
 	
 	def addaa(self,aa):
 		self.m.addaa(aa)
@@ -173,13 +169,36 @@ class MutalyzeManager(object):
 		print c
 		if self.gui: self.gui.charge.set(c)
 	
-	def next(self,resi=None):
-		if resi:
-			try: self.m = self.d.mutmap[int(resi)]
+	def nextdesign(self,pid=None):
+		self.d.save()
+		if pid:
+			try: 
+				self.desmap[pid].load()
 			except KeyError as e:
-				print "no design pos resi",resi
+				print "no design for pdb",pid
 				print e
 				return
+		else:
+			try: 
+				self.des[self.des.index(self.d)+1].load()
+			except IndexError as e:
+				print "DONE!!!"
+				return
+		print "now active:",self.d		
+	
+	def prevdesign(self):
+		print "not implemented!!!!"
+	
+	def next(self,resi=None):
+		if resi is not None:
+			if resi == '0': 
+				self.d.muts[0].focus()
+			else:
+				try: self.d.mutmap[int(resi)].focus()
+				except KeyError as e:
+					print "no design pos resi",resi
+					print e
+					return
 		else:
 			self.shiftworkingmut(+1)
 	
@@ -187,13 +206,12 @@ class MutalyzeManager(object):
 		self.shiftworkingmut(-1)
 	
 	def shiftworkingmut(self,delta):
-		try: self.m = self.d.muts[self.d.muts.index(self.m)+delta]
-		except ValueError: self.m = self.d.muts[0]			
+		try: self.d.muts[self.d.muts.index(self.m)+delta].focus()
+		except ValueError: self.d.muts[0].focus()
 		except IndexError as e:
 			print "DONE!!!"
 			return
 		print "now active:",self.m
-		self.m.focus()		
 	
 	def revert(self):
 		self.m.revert()
@@ -231,32 +249,31 @@ class DesignPos(object):
 	def __init__(self,rdes,rnat):
 		self.rdes = rdes
 		self.rnat = rnat
-		self.togglesph = False
 		self.oldcrd = None
 		self.notes = []
 		self.aas = [self.aa()]
 		self.scores = {}
 		self.res_scores = {}
-		self.toggleinfo = False
-		self.lastinfokind = None
+		self.toggle = {'sph':False,'info':False,'infokind':None}
 	
 	def __str__(self):
 		return str(self.rdes)+" (native %s / %i)"%(self.rnat.resn,self.rnat.resi)
 	
 	def focus(self):
 		self.manager.m = self
-		cmd.hide('sticks')
+		if self.manager.prevm: cmd.hide('sticks',self.manager.prevm.rdes.sel())
+		if self.manager.prevm: cmd.color('green',self.manager.prevm.rdes.sel()+" and elem C")
 		fr = self.rnat.obj+" and name n+ca+c and resi %i-%i"%(self.rnat.resi-10,self.rnat.resi+10)		
 		to = self.rdes.obj+" and name n+ca+c and resi %i-%i"%(self.rdes.resi-10,self.rdes.resi+10)
 		cmd.align(fr,to)
 		cmd.center(self.rdes.sel()+" or "+self.rnat.sel())
 		cmd.show('sticks',self.rdes.sel())
-		#cmd.show('sticks',self.rnat.sel())
+		cmd.color('white',self.rdes.sel()+" and elem C")
 	
 	def showpack(self):
 		cmd.hide('spheres','not '+self.manager.d.bunssel)
-		if self.togglesph:
-			self.togglesph = False
+		if self.toggle['sph']:
+			self.toggle['sph'] = False
 			return
 		fr = self.rnat.obj+" and name n+ca+c and resi %i-%i"%(self.rnat.resi-10,self.rnat.resi+10)		
 		to = self.rdes.obj+" and name n+ca+c and resi %i-%i"%(self.rdes.resi-10,self.rdes.resi+10)
@@ -264,7 +281,7 @@ class DesignPos(object):
 		cmd.center(self.rdes.sel()+" or "+self.rnat.sel())
 		#cmd.show('sticks',self.rnat.sel())
 		cmd.show('spheres',"byres ((not "+self.rnat.obj+") within 6 of "+self.rdes.sel()+")")
-		self.togglesph = True
+		self.toggle['sph'] = True
 	
 	def showinfo(self):
 		m = dict(self.scores)
@@ -312,12 +329,11 @@ class DesignPos(object):
 		m["tot_sc"           ] = self.manager.d.scores["sc"           ]
 		self.showinfomap(m,"all")
 	
-	def showinfomap(self,scmap,infokind="NOKIND"):
+	def showinfomap(self,scmap,infokind):
 		cmd.delete("pseudo*")
 		cmd.remove("labelpseudo*")
-		self.toggleinfo = self.toggleinfo and cmd.select("pseudo*") and self.lastinfokind==infokind
-		self.lastinfokind = infokind
-		if not self.toggleinfo:
+		self.toggle['info'] = self.toggle['info'] and self.toggle['infokind']==infokind #and cmd.select("pseudo*") 
+		if not self.toggle['info']:
 			cen = com(self.rdes.sel())
 			v = cmd.get_view()
 			sp = math.sqrt(-v[11]/200.0)
@@ -330,7 +346,8 @@ class DesignPos(object):
 				txt = s+": %2.3f"%scmap[s]
 				txt.strip("0")
 				cmd.pseudoatom(name="labelpseudo",pos=[p.x,p.y,p.z],label=txt)		
-		self.toggleinfo = not self.toggleinfo
+		self.toggle['info'] = not self.toggle['info']
+		self.toggle['infokind'] = infokind
 	
 	def aa(self): return aa_3_1[self.rdes.resn]	
 	
@@ -376,11 +393,12 @@ class Design(object):
 		self.manager = manager
 		self.muts = None
 		self.mutmap = {}
-		self.togglebuns = False
+		self.toggle = {'buns':False}
 		self.scores = {}
 		self.obj = os.path.basename(fname)
 		if self.obj.endswith('gz' ): self.obj = self.obj[:-3]
 		if self.obj.endswith('pdb'): self.obj = self.obj[:-4]
+		self.pid = self.obj[:4]
 		self.resscoreslbl = os.popen("grep '^label fa_atr' "+self.fname).read().split()
 		self.resscoreslbl[-1] = "score" # instead of total
 	
@@ -392,24 +410,33 @@ class Design(object):
 		print "saved pse, pdb, and resfile with notes"
 	
 	def resfile(self):
-		print "AUTO\nNATRO\n\nstart"
-		for m in self.muts: print m.resfileline(sp)
+		sp = max(len(dp.aas) for dp in self.muts)
+		rf = "AUTO\nNATRO\n\nstart\n"
+		for m in self.muts: rf += m.resfileline(sp)+'\n'
+		return rf
 	
 	def load(self):
-		cmd.delete(self.obj)
+		self.manager.d = self
+		self.manager.m = None
+		self.manager.m = None # to also set prevm = None		
+		# cmd.delete(self.manager.prevd.obj)
+		# cmd.delete(self.manager.prevd.pid)
+		# print self.manager.d.obj
+		# print self.manager.prevd.obj		
+		# sys.exit()
+		cmd.delete("all")
 		if os.path.exists(savedir+self.obj+"pdb"): cmd.load(savedir+self.obj+"pdb",self.obj,1)
 		else:                                      cmd.load(self.fname            ,self.obj,1)
 		cmd.remove(self.obj+" and not chain A")
-		self.pid = self.obj[:4]
 		cmd.fetch(self.pid)
 		cmd.remove("het or hydro")
 		cmd.color('gray',self.pid+' and elem C')
-		assert cmd.align(self.pid,self.obj+" and chain A")[0] < 0.6
+		self.scores['rms'] = cmd.align(self.pid,self.obj+" and chain A")[0]
 		cmd.hide('ev')
 		cmd.show('lines')
 		cmd.show("car")
 		redopent(self.obj)
-		cmd.zoom(self.obj)
+		cmd.orient(self.obj)
 		self.recalc_design_pos()
 		self.read_data_dir('avg_deg')
 		self.read_data_dir('ddG')
@@ -483,7 +510,6 @@ class Design(object):
 				if resi in self.mutmap:
 					try: 
 						self.mutmap[resi].res_scores[k] = float(v)
-						print "SET!",resi,k,v													
 					except Exception as e:
 						print e
 		# for m in self.muts:
@@ -507,9 +533,9 @@ class Design(object):
 		self.showbuns()
 	
 	def showbuns(self):
-		if not self.togglebuns: cmd.show("spheres",self.bunssel)
-		else:                   cmd.hide("spheres",self.bunssel)
-		self.togglebuns = not self.togglebuns
+		if not self.toggle['buns']: cmd.show("spheres",self.bunssel)
+		else:                        cmd.hide("spheres",self.bunssel)
+		self.toggle['buns'] = not self.toggle['buns']
 	
 
 
