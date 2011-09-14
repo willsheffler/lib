@@ -60,10 +60,11 @@ class MutalyzeManager(object):
 		self.d = self.des[0]
 		self.d.load()
 		self.gui = None
-		self.toggle = { 'nat':1,'lines':1,'cartoon':1,'all':1,'view':None }
+		self.toggle = { 'nat':0,'lines':1,'cartoon':1,'all':1,'view':0 }
 		cmd.extend("a"      ,lambda a:         self.addaa(a)       )	
 		cmd.extend("c"      ,lambda:           self.centeractive() )
 		cmd.extend("car"    ,lambda:           self.togglerep("cartoon"))		
+		cmd.extend("chare"  ,lambda:           self.chargeupdate() )
 		cmd.extend("g"      ,lambda:           self.rungui()       )
 		cmd.extend("h"      ,lambda:           self.help()         )
 		cmd.extend("i"      ,lambda:           self.showinfo()     )
@@ -72,16 +73,16 @@ class MutalyzeManager(object):
 		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
 		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
 		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
-		cmd.extend("cnote",lambda:             self.clearnote()    )
+		cmd.extend("cnote"  ,lambda:           self.clearnote()    )
 		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
 		cmd.extend("o"      ,lambda:           self.orient()       )
 		cmd.extend("p"      ,lambda:           self.prev()         )
 		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
-		cmd.extend("ps"      ,lambda:           self.toprimary()    )
+		cmd.extend("ps"     ,lambda:           self.toprimary()    )
 		cmd.extend("r"      ,lambda:           self.revert()       )
 		cmd.extend("ra"     ,lambda:           self.reset_align()  )
 		cmd.extend("s"      ,lambda:           self.showpack()     )
-		cmd.extend("u"      ,lambda:           self.showbuns()     )
+		cmd.extend("u"      ,lambda:           self.showbup()      )
 		cmd.extend("v"      ,lambda:           self.toggleall()    )
 		cmd.extend("vn"     ,lambda:           self.togglenat()    )
 		cmd.extend("resfile",lambda:           self.printresfile() )
@@ -89,6 +90,7 @@ class MutalyzeManager(object):
 cmd: a <AA>          add aa to resfile for active res
 cmd: c               center active res (toggle)
 cmd: car             toggle cartoon
+cmd: charge          print total charge (is it correct???)
 cmd: g               run gui       
 cmd: h               help      
 cmd: i               show info for active res (toggle)
@@ -106,8 +108,8 @@ cmd: r               revert active res (toggle)
 cmd: ra              reset to global nat alignment
 cmd: s               show spheres around active res (toggle)
 cmd: u               show bur uns polar (toggle)
-cmd: v               toggle all (useful to see info)
-cmd: vn              toggle native   
+cmd: v               view all (toggle); sometimes useful to see info clearly
+cmd: vn              view native (toggle)
 cmd: resfile         print resfile to screen
 		""".strip()
 		print 'MutalyzeManager initialized managing %i designs'%len(self.des)
@@ -202,24 +204,52 @@ cmd: resfile         print resfile to screen
 		if self.gui: self.gui.charge.set(c)
 	
 	def nextdesign(self,pid=None):
-		self.d.save()
-		if pid:
-			try: 
-				self.desmap[pid].load()
-			except KeyError as e:
-				print "no design for pdb",pid
-				print e
+		newd = None
+		try:
+			self.d.save()
+			if pid:
+				try: 
+					print "SWITCH TO DES",pid				
+					newd = self.desmap[pid]
+				except KeyError as e:
+					print "no design for pdb",pid
+					print e
+					return
+			else:
+				try: 
+					print "SWITCH TO DES #",self.des.index(self.d)+1+1,"of",len(self.des)
+					newd = self.des[self.des.index(self.d)+1]
+				except IndexError as e:
+					print "FAIL: SWITCH TO DES #",self.des.index(self.d)+1+1,"of",len(self.des)
+					print e
+					print "DONE??!?!?!"
+					return
+			if not newd:
+				print "NOT SWITCHING DESIGNS!"
 				return
-		else:
-			try: 
-				self.des[self.des.index(self.d)+1].load()
-			except IndexError as e:
-				print "DONE!!!"
-				return
-		print "now active:",self.d		
+			newd.load()
+			return
+			#print "now active:",self.d		
+		except Exception as e:
+			print "FAIL ON",newd.fname
+			print e
+			return
 	
 	def prevdesign(self):
-		print "not implemented!!!!"
+		self.d.save()
+		newd = None
+		try: 
+			print "SWITCH TO DES #",self.des.index(self.d)-1+1,"of",len(self.des)
+			newd = self.des[self.des.index(self.d)-1]
+		except IndexError as e:
+			print "FAIL: SWITCH TO DES #",self.des.index(self.d)-1+1,"of",len(self.des)
+			print e
+			return
+		if not newd:
+			print "NOT SWITCHING DESIGNS!"
+			return
+		newd.load()
+		#print "now active:",self.d		
 	
 	def next(self,resi=None):
 		if resi is not None:
@@ -251,8 +281,8 @@ cmd: resfile         print resfile to screen
 	def showpack(self):
 		self.m.showpack()
 	
-	def showbuns(self):
-		self.d.showbuns()
+	def showbup(self):
+		self.d.showbup()
 	
 
 
@@ -308,7 +338,7 @@ class DesignPos(object):
 	
 	def showpack(self):
 		print self.toggle['sph']
-		#cmd.hide('spheres','not '+self.manager.d.bunssel)
+		#cmd.hide('spheres','not '+self.manager.d.bupsel)
 		cmd.hide('spheres')
 		if self.toggle['sph']:
 			self.toggle['sph'] = False
@@ -432,8 +462,10 @@ class Design(object):
 		self.fname = fname
 		self.manager = manager
 		self.muts = None
+		self.remembermm = None
+		self.remembermv = None
 		self.mutmap = {}
-		self.toggle = {'buns':False}
+		self.toggle = {'bup':False}
 		self.scores = {}
 		self.obj = os.path.basename(fname)
 		if self.obj.endswith('gz' ): self.obj = self.obj[:-3]
@@ -447,7 +479,9 @@ class Design(object):
 		cmd.save (savedir+self.obj+".pse")
 		cmd.save (savedir+self.obj+".pdb")
 		with open(savedir+self.obj+".resfile","w") as o: o.write(self.resfile()+"\n")
-		print "saved pse, pdb, and resfile with notes"
+		#print "saved pse, pdb, and resfile with notes"
+		self.remembermm = self.manager.m
+		self.remembermv = cmd.get_view()
 	
 	def resfile(self):
 		self.resupdate()
@@ -483,15 +517,20 @@ class Design(object):
 		cmd.hide('ev')
 		cmd.show('lines')
 		cmd.show("car")
+		cmd.disable(self.pid)
 		redopent(self.obj)
 		self.recalc_design_pos()
 		self.read_data_dir('avg_deg')
 		self.read_data_dir('ddG')
 		self.read_data_dir('rot_boltz')
-		self.read_buns()
-		self.read_scores()
+		self.read_bup()
+		self.read_tot_scores()
 		self.read_res_scores()
 		cmd.orient(self.obj+" or pnt*")
+		self.manager.m = self.remembermm
+		if self.manager.m: self.manager.m.focus()
+		if self.remembermv: cmd.set_view(self.remembermv)
+		
 	
 	def get_design_pos(self):
 		if not self.muts: recalc_design_pos()
@@ -500,11 +539,23 @@ class Design(object):
 	def recalc_design_pos(self):
 		res = [Residue(x[1],x[0],self.obj) for x in getres(self.obj+" and chain A")]
 		re2 = []
-		c,r0 = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[ 0].sel()))[0]
-		c,rN = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[-1].sel()))[0]
-		for i in range(r0,rN+1):
-			r2 = Residue(i,c,self.pid)
-			re2.append(r2)
+		first,last = 0,-1
+		c0,r0,cN,rN = None,None,None,None
+		while r0 is None:
+			try: c0,r0 = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[first].sel()))[0]
+			except IndexError: first += 1
+		while rN is None:
+			try: cN,rN = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[ last].sel()))[0]
+			except IndexError: last -= 1
+		assert c0 is not None and r0 is not None and cN is not None and rN is not None 
+		assert first < 10 and last > -10 and c0==cN
+		c = c0
+		try:
+			for i in range(r0,rN+1):
+				r2 = Residue(i,c,self.pid)
+				re2.append(r2)
+		except IndexError:
+			raise Exception("BAD NATIVE")
 		self.muts = [DesignPos(r,r2) for r,r2 in zip(res,re2) if r.isdiffenent(r2)]
 		for m in self.muts: m.manager = self.manager
 		self.mutmap = {}
@@ -514,7 +565,7 @@ class Design(object):
 	def read_data_dir(self,dname,mytype=float):
 		tmpf = glob.glob("%s/*%s*.%s"%(dname,self.obj.replace(".mutalyze",""),dname))
 		assert len(tmpf) == 1
-		print "reading",dname,'from',tmpf[0]
+		#print "reading",dname,'from',tmpf[0]
 		fres,pres = set(),set()
 		with open(tmpf[0]) as f:
 			ref = None
@@ -532,25 +583,28 @@ class Design(object):
 						print "WARNING: resn's disagree: file: %s pymol: %s"%(lab[:3],self.mutmap[resi].rdes.resn)
 		for k in self.mutmap.keys(): pres.add(k)
 		for i in fres|pres: 
-			if i not in pres and i in fres: print dname+":","resi in file not in pymol:%4i"%i
-			if i in pres and i not in fres: print dname+":","resi in pymol not in file:%4i"%i
+			#if i not in pres and i in fres: print dname+":","resi in file not in pymol:%4i"%i
+			#if i in pres and i not in fres: print dname+":","resi in pymol not in file:%4i"%i
 			#if i in pres and i in fres:     print dname+":","resi in pymol and in file:%4i GOOD!"%i
 			for i in pres-fres: self.mutmap[i].scores[dname] = float('nan')
 	
-	def read_scores(self):
+	def read_tot_scores(self):
 		tmpf = glob.glob("output/*%s*.sc"%(self.obj.replace(".mutalyze","")))
+		if len(tmpf)==0:
+			print "WARNING: no mutalyze scorefile found:","output/*%s*.sc"%(self.obj.replace(".mutalyze",""))
+			return
 		assert len(tmpf) == 1
-		print "reading total scores from",tmpf[0]
+		#print "reading total scores from",tmpf[0]
 		with open(tmpf[0]) as f:
 			lbl = f.readline().split()
 			val = f.readline().split()
 			for l,v in zip(lbl[1:-1],val[1:-1]):
 				try: self.scores[l] = float(v)
-				except Exception as e: print e
+				except Exception as e: pass#print e
 	
 	def read_res_scores(self):
 		lines = os.popen("egrep '^[A-Z]{3}(_p:[^ ]+)?_[0-9]+ -?[0-9]' %s"%self.fname).readlines()
-		print "reading residue scores from",self.fname
+		#print "reading residue scores from",self.fname
 		for line in lines:
 			line = line.split()
 			resi = int(line[0].split("_")[-1])
@@ -559,31 +613,30 @@ class Design(object):
 					try: 
 						self.mutmap[resi].res_scores[k] = float(v)
 					except Exception as e:
-						print e
+						pass#print e
 		# for m in self.muts:
 		# 	for k in self.resscoreslbl:
 		# 		if k not in m.res_scores: 
 		# 			m.res_scores[k] = float('nan')
 	
-	def read_buns(self):
+	def read_bup(self):
 		dname = "hbonds"
 		tmpf = glob.glob("%s/*%s*.%s"%(dname,self.obj.replace(".mutalyze",""),dname))
 		assert len(tmpf) == 1
-		print "reading",dname,'from',tmpf[0]
-		self.buns = []
+		#print "reading",dname,'from',tmpf[0]
+		self.bup = []
 		with open(tmpf[0]) as f:
 			for line in f.readlines():
 				lab,val = line.split()
 				resi = int(lab[3:])
 				for aname in val.split(','):
-					self.buns.append((resi,aname))
-		self.bunssel = self.obj+" and ("+" or ".join("(resi %i and name %s)"%(r,a) for r,a in self.buns)+")"
-		self.showbuns()
+					self.bup.append((resi,aname))
+		self.bupsel = self.obj+" and ("+" or ".join("(resi %i and name %s)"%(r,a) for r,a in self.bup)+")"
 	
-	def showbuns(self):
-		if not self.toggle['buns']: cmd.show("spheres",self.bunssel)
-		else:                        cmd.hide("spheres",self.bunssel)
-		self.toggle['buns'] = not self.toggle['buns']
+	def showbup(self):
+		if not self.toggle['bup']: cmd.show("spheres",self.bupsel)
+		else:                        cmd.hide("spheres",self.bupsel)
+		self.toggle['bup'] = not self.toggle['bup']
 	
 
 
