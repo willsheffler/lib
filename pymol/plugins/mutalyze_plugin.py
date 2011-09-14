@@ -3,7 +3,7 @@ import sys,urllib2,zlib,os,threading,glob,math
 from pymol import cmd
 from Tkinter import *
 sys.path.append("/Users/sheffler/lib/pymol")
-from util import Mat,Vec,getres,aa_3_1,aa_1_3,redopent,rot,trans,com
+from util import Mat,Vec,getres,aa_3_1,aa_1_3,redopent,rot,trans,com,getaa
 
 savedir = "mutalyze_PYMOL_WORKING/"
 
@@ -60,53 +60,56 @@ class MutalyzeManager(object):
 		self.d = self.des[0]
 		self.d.load()
 		self.gui = None
-		self.toggle = { 'togglenat':1,'lines':1,'cartoon':1,'all':1,'view':None }
-		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
+		self.toggle = { 'nat':1,'lines':1,'cartoon':1,'all':1,'view':None }
+		cmd.extend("a"      ,lambda a:         self.addaa(a)       )	
 		cmd.extend("c"      ,lambda:           self.centeractive() )
 		cmd.extend("car"    ,lambda:           self.togglerep("cartoon"))		
-		cmd.extend("g"      ,lambda:           self.gui()          )
-		cmd.extend("h"      ,lambda:           self.toggleall()    )
-		cmd.extend("help"   ,lambda:           self.help()         )
-		cmd.extend("hn"     ,lambda:           self.togglenat()    )
+		cmd.extend("g"      ,lambda:           self.rungui()       )
+		cmd.extend("h"      ,lambda:           self.help()         )
 		cmd.extend("i"      ,lambda:           self.showinfo()     )
 		cmd.extend("iall"   ,lambda:           self.showallinfo()  )
 		cmd.extend("j"      ,lambda:           self.showallinfo()  )
 		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
 		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
 		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
-		cmd.extend("clearnote",lambda:         self.clearnote()    )
+		cmd.extend("cnote",lambda:             self.clearnote()    )
 		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
 		cmd.extend("o"      ,lambda:           self.orient()       )
 		cmd.extend("p"      ,lambda:           self.prev()         )
 		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
+		cmd.extend("ps"      ,lambda:           self.toprimary()    )
 		cmd.extend("r"      ,lambda:           self.revert()       )
-		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
+		cmd.extend("ra"     ,lambda:           self.reset_align()  )
 		cmd.extend("s"      ,lambda:           self.showpack()     )
 		cmd.extend("u"      ,lambda:           self.showbuns()     )
+		cmd.extend("v"      ,lambda:           self.toggleall()    )
+		cmd.extend("vn"     ,lambda:           self.togglenat()    )
 		cmd.extend("resfile",lambda:           self.printresfile() )
 		self.helpstr = """
-		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
-		cmd.extend("c"      ,lambda:           self.togglerep("cartoon"))
-		cmd.extend("g"      ,lambda:           self.gui()          )
-		cmd.extend("h"      ,lambda:           self.toggleall()    )
-		cmd.extend("help"   ,lambda:           self.help()         )
-		cmd.extend("hn"     ,lambda:           self.togglenat()    )
-		cmd.extend("i"      ,lambda:           self.showinfo()     )
-		cmd.extend("iall"   ,lambda:           self.showallinfo()  )
-		cmd.extend("j"      ,lambda:           self.showallinfo()  )
-		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
-		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
-		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
-		cmd.extend("notes"  ,lambda:           self.printresfile())
-		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
-		cmd.extend("p"      ,lambda:           self.prev()         )
-		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
-		cmd.extend("r"      ,lambda:           self.revert()       )
-		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
-		cmd.extend("s"      ,lambda:           self.showpack()     )
-		cmd.extend("u"      ,lambda:           self.showbuns()     )
-		cmd.extend("resfile",lambda:           self.printresfile() )
-		"""
+cmd: a <AA>          add aa to resfile for active res
+cmd: c               center active res (toggle)
+cmd: car             toggle cartoon
+cmd: g               run gui       
+cmd: h               help      
+cmd: i               show info for active res (toggle)
+cmd: j               show all info for active res (toggle)
+cmd: l               toggle lines	
+cmd: n <resi or 0>   next design pos, or resi, or first (if 0)
+cmd: note <note>     record note for active res
+cmd: cnote           clear notes for active res
+cmd: nd <ofst=+1>    next design, saves current in mutalyze_PYMOL_WORKING
+cmd: o               toggle global view
+cmd: p               prev design pos
+cmd: pd              prev design   
+cmd: ps              change selection to primary subunit
+cmd: r               revert active res (toggle)
+cmd: ra              reset to global nat alignment
+cmd: s               show spheres around active res (toggle)
+cmd: u               show bur uns polar (toggle)
+cmd: v               toggle all (useful to see info)
+cmd: vn              toggle native   
+cmd: resfile         print resfile to screen
+		""".strip()
 		print 'MutalyzeManager initialized managing %i designs'%len(self.des)
 	
 	def orient(self):
@@ -128,7 +131,7 @@ class MutalyzeManager(object):
 	def help(self):
 		print self.helpstr
 	
-	def gui(self):
+	def rungui(self):
 		root = Tk()
 		self.gui = MutalyzeGui(self,root)
 		self.gui.mainloop()
@@ -160,7 +163,7 @@ class MutalyzeManager(object):
 	
 	def togglerep(self,rep):
 		if self.toggle[rep]: cmd.hide(rep)
-		else:                    cmd.show(rep)
+		else:                cmd.show(rep)
 		self.toggle[rep] = not self.toggle[rep]		
 	
 	def addaa(self,aa):
@@ -295,12 +298,18 @@ class DesignPos(object):
 		fr = self.rnat.obj+" and name n+ca+c and resi %i-%i"%(self.rnat.resi-10,self.rnat.resi+10)		
 		to = self.rdes.obj+" and name n+ca+c and resi %i-%i"%(self.rdes.resi-10,self.rdes.resi+10)
 		cmd.align(fr,to)
-		cmd.center(self.rdes.sel()+" or "+self.rnat.sel())
 		cmd.show('sticks',self.rdes.sel())
 		cmd.color('white',self.rdes.sel()+" and elem C")
+		cmd.center(self.rdes.sel())
+		v = list(cmd.get_view())
+		v[11] = -80.0
+		cmd.set_view(tuple(v))
+		cmd.clip('slab',50,self.rdes.sel())
 	
 	def showpack(self):
-		cmd.hide('spheres','not '+self.manager.d.bunssel)
+		print self.toggle['sph']
+		#cmd.hide('spheres','not '+self.manager.d.bunssel)
+		cmd.hide('spheres')
 		if self.toggle['sph']:
 			self.toggle['sph'] = False
 			return
@@ -411,7 +420,7 @@ class DesignPos(object):
 		redopent(self.rdes.obj)
 		cmd.set_view(v)
 		print "revert removing "+"".join(self.aas)+" from aas!"
-		self.aas = [aa_3_1[self.rnat.resn]]
+		self.aas = [getaa('A',self.rdes.resi,self.manager.d.obj)]
 	
 	def resfileline(self,sp=1):
 		return "%4i A PIKAA "%self.rdes.resi + "".join(self.aas).ljust(sp) + " # "+" # ".join(self.notes)
@@ -441,10 +450,18 @@ class Design(object):
 		print "saved pse, pdb, and resfile with notes"
 	
 	def resfile(self):
+		self.resupdate()
 		sp = max(len(dp.aas) for dp in self.muts)
 		rf = "AUTO\nNATRO\n\nstart\n"
 		for m in self.muts: rf += m.resfileline(sp)+'\n'
 		return rf
+	
+	def resupdate(self):
+		for m in self.muts:
+			aa = getaa('A',m.rdes.resi,self.obj)
+			aa3 = aa_1_3[aa]
+			if aa3 != m.rdes.resn and aa3 != m.rnat.resn:
+				m.aas = [aa]
 	
 	def load(self):
 		self.manager.d = self

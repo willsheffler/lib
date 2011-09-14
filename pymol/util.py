@@ -1492,8 +1492,8 @@ def redopent(sel):
 	cmd.alter("pntE","chain='E'")
 	cmd.set_view(v)
 
-def getaa(c,r):
-	m = cmd.get_model("chain %s and resi %d"%(c,r))
+def getaa(c,r,o='all'):
+	m = cmd.get_model("%s and chain %s and resi %d"%(o,c,int(r)))
 	return aa_3_1[m.atom[0].resn]
 
 def mkifaceresfile(fn=None):
