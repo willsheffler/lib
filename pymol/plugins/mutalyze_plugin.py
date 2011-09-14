@@ -60,44 +60,70 @@ class MutalyzeManager(object):
 		self.d = self.des[0]
 		self.d.load()
 		self.gui = None
-		self.toggle = { 'togglenat':1,'lines':1,'cartoon':1,'all':1 }
-		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
-		cmd.extend("p"      ,lambda:           self.prev()         )
-		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
-		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
-		cmd.extend("s"      ,lambda:           self.showpack()     )
+		self.toggle = { 'togglenat':1,'lines':1,'cartoon':1,'all':1,'view':None }
+		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
+		cmd.extend("c"      ,lambda:           self.centeractive() )
+		cmd.extend("car"    ,lambda:           self.togglerep("cartoon"))		
+		cmd.extend("g"      ,lambda:           self.gui()          )
+		cmd.extend("h"      ,lambda:           self.toggleall()    )
+		cmd.extend("help"   ,lambda:           self.help()         )
+		cmd.extend("hn"     ,lambda:           self.togglenat()    )
 		cmd.extend("i"      ,lambda:           self.showinfo()     )
 		cmd.extend("iall"   ,lambda:           self.showallinfo()  )
 		cmd.extend("j"      ,lambda:           self.showallinfo()  )
-		cmd.extend("r"      ,lambda:           self.revert()       )
-		cmd.extend("g"      ,lambda:           self.gui()          )
-		cmd.extend("h"      ,lambda:           self.toggleall()    )
-		cmd.extend("hn"     ,lambda:           self.togglenat()    )
-		cmd.extend("u"      ,lambda:           self.showbuns()     )
-		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
 		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
-		cmd.extend("c"      ,lambda:           self.togglerep("cartoon"))
-		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
-		cmd.extend("help"   ,lambda:           self.help()         )
+		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
 		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
+		cmd.extend("clearnote",lambda:         self.clearnote()    )
+		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
+		cmd.extend("o"      ,lambda:           self.orient()       )
+		cmd.extend("p"      ,lambda:           self.prev()         )
+		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
+		cmd.extend("r"      ,lambda:           self.revert()       )
+		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
+		cmd.extend("s"      ,lambda:           self.showpack()     )
+		cmd.extend("u"      ,lambda:           self.showbuns()     )
 		cmd.extend("resfile",lambda:           self.printresfile() )
 		self.helpstr = """
-		cmd.extend("n"      ,lambda resi=None: self.next(resi))
-		cmd.extend("p"      ,lambda:           self.prev())
-		cmd.extend("s"      ,lambda:           self.showpack())
-		cmd.extend("i"      ,lambda:           self.showinfo())
-		cmd.extend("j"      ,lambda:           self.showallinfo())
-		cmd.extend("r"      ,lambda:           self.revert())
-		cmd.extend("c"      ,lambda:           self.chargeupdate())
-		cmd.extend("g"      ,lambda:           self.gui())
-		cmd.extend("h"      ,lambda:           self.toggle())
-		cmd.extend("u"      ,lambda:           self.showbuns())
-		cmd.extend("a"      ,lambda a:         self.addaa(a))		
-		cmd.extend("help"   ,lambda:           self.help())
-		cmd.extend("note"   ,lambda txt=None:  self.note(txt))
-		cmd.extend("resfile",lambda: self.resfile())
+		cmd.extend("a"      ,lambda a:         self.addaa(a)       )		
+		cmd.extend("c"      ,lambda:           self.togglerep("cartoon"))
+		cmd.extend("g"      ,lambda:           self.gui()          )
+		cmd.extend("h"      ,lambda:           self.toggleall()    )
+		cmd.extend("help"   ,lambda:           self.help()         )
+		cmd.extend("hn"     ,lambda:           self.togglenat()    )
+		cmd.extend("i"      ,lambda:           self.showinfo()     )
+		cmd.extend("iall"   ,lambda:           self.showallinfo()  )
+		cmd.extend("j"      ,lambda:           self.showallinfo()  )
+		cmd.extend("l"      ,lambda:           self.togglerep("lines"))		
+		cmd.extend("n"      ,lambda resi=None: self.next(resi)     )
+		cmd.extend("note"   ,lambda txt=None:  self.note(txt)      )
+		cmd.extend("notes"  ,lambda:           self.printresfile())
+		cmd.extend("nd"     ,lambda pid=None:  self.nextdesign(pid))
+		cmd.extend("p"      ,lambda:           self.prev()         )
+		cmd.extend("pd"     ,lambda:           self.prevdesign()   )
+		cmd.extend("r"      ,lambda:           self.revert()       )
+		cmd.extend("ra"     ,lambda:           self.reset_align()  )		
+		cmd.extend("s"      ,lambda:           self.showpack()     )
+		cmd.extend("u"      ,lambda:           self.showbuns()     )
+		cmd.extend("resfile",lambda:           self.printresfile() )
 		"""
 		print 'MutalyzeManager initialized managing %i designs'%len(self.des)
+	
+	def orient(self):
+		if self.toggle['view']:
+			cmd.set_view(self.toggle['view'])
+			self.toggle['view'] = None
+		else:
+			self.toggle['view'] = cmd.get_view()
+			cmd.orient(self.d.obj+" or pnt*")
+	
+	def centeractive(self):
+		if self.toggle['view']:
+			cmd.set_view(self.toggle['view'])
+			self.toggle['view'] = None
+		else:
+			self.toggle['view'] = cmd.get_view()			
+			cmd.center(self.m.rdes.sel())
 	
 	def help(self):
 		print self.helpstr
@@ -141,8 +167,11 @@ class MutalyzeManager(object):
 		self.m.addaa(aa)
 	
 	def note(self,txt=None):
-		if txt is None: print "\n".join(self.m.notes)
+		if txt is None: self.printresfile()
 		else: self.m.notes.append(txt)
+	
+	def clearnote(self):
+		self.m.notes = []
 	
 	def zoom(self):
 		cmd.zoom(self.d.muts[0].rdes.obj+" or pnt*")
@@ -381,6 +410,8 @@ class DesignPos(object):
 		cmd.show('lines')		
 		redopent(self.rdes.obj)
 		cmd.set_view(v)
+		print "revert removing "+"".join(self.aas)+" from aas!"
+		self.aas = [aa_3_1[self.rnat.resn]]
 	
 	def resfileline(self,sp=1):
 		return "%4i A PIKAA "%self.rdes.resi + "".join(self.aas).ljust(sp) + " # "+" # ".join(self.notes)
@@ -436,7 +467,6 @@ class Design(object):
 		cmd.show('lines')
 		cmd.show("car")
 		redopent(self.obj)
-		cmd.orient(self.obj)
 		self.recalc_design_pos()
 		self.read_data_dir('avg_deg')
 		self.read_data_dir('ddG')
@@ -444,6 +474,7 @@ class Design(object):
 		self.read_buns()
 		self.read_scores()
 		self.read_res_scores()
+		cmd.orient(self.obj+" or pnt*")
 	
 	def get_design_pos(self):
 		if not self.muts: recalc_design_pos()
