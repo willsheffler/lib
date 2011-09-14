@@ -60,11 +60,11 @@ class MutalyzeManager(object):
 		self.d = self.des[0]
 		self.d.load()
 		self.gui = None
-		self.toggle = { 'nat':0,'lines':1,'cartoon':1,'all':1,'view':0 }
+		self.toggle = { 'nat':1,'lines':1,'cartoon':1,'all':1,'view':0 }
 		cmd.extend("a"      ,lambda a:         self.addaa(a)       )	
 		cmd.extend("c"      ,lambda:           self.centeractive() )
-		cmd.extend("car"    ,lambda:           self.togglerep("cartoon"))		
-		cmd.extend("chare"  ,lambda:           self.chargeupdate() )
+		cmd.extend("car"    ,lambda:           self.togglerep("cartoon"))
+		cmd.extend("charge" ,lambda:           self.chargeupdate() )
 		cmd.extend("g"      ,lambda:           self.rungui()       )
 		cmd.extend("h"      ,lambda:           self.help()         )
 		cmd.extend("i"      ,lambda:           self.showinfo()     )
@@ -82,6 +82,7 @@ class MutalyzeManager(object):
 		cmd.extend("r"      ,lambda:           self.revert()       )
 		cmd.extend("ra"     ,lambda:           self.reset_align()  )
 		cmd.extend("s"      ,lambda:           self.showpack()     )
+		cmd.extend("sav"    ,lambda:           self.save()         )
 		cmd.extend("u"      ,lambda:           self.showbup()      )
 		cmd.extend("v"      ,lambda:           self.toggleall()    )
 		cmd.extend("vn"     ,lambda:           self.togglenat()    )
@@ -203,6 +204,9 @@ cmd: resfile         print resfile to screen
 		print c
 		if self.gui: self.gui.charge.set(c)
 	
+	def save(self):
+		self.d.save(manual=True)
+	
 	def nextdesign(self,pid=None):
 		newd = None
 		try:
@@ -231,8 +235,9 @@ cmd: resfile         print resfile to screen
 			return
 			#print "now active:",self.d		
 		except Exception as e:
-			print "FAIL ON",newd.fname
+			print "FAIL ON",newd.fname if newd else "after "+self.d.fname
 			print e
+			raise
 			return
 	
 	def prevdesign(self):
@@ -474,11 +479,13 @@ class Design(object):
 		self.resscoreslbl = os.popen("grep '^label fa_atr' "+self.fname).read().split()
 		self.resscoreslbl[-1] = "score" # instead of total
 	
-	def save(self):
-		if not os.path.exists(savedir): os.mkdir(savedir)
-		cmd.save (savedir+self.obj+".pse")
-		cmd.save (savedir+self.obj+".pdb")
-		with open(savedir+self.obj+".resfile","w") as o: o.write(self.resfile()+"\n")
+	def save(self,manual=False):
+		sd = "mutalyze_MANUAL_SAVE/" if manual else savedir
+		if not os.path.exists(sd): os.mkdir(sd)
+		redopent(self.obj)
+		cmd.save (sd+self.obj+".pse")
+		cmd.save (sd+self.obj+".pdb",self.obj+" or pnt*")
+		with open(sd+self.obj+".resfile","w") as o: o.write(self.resfile()+"\n")
 		#print "saved pse, pdb, and resfile with notes"
 		self.remembermm = self.manager.m
 		self.remembermv = cmd.get_view()
@@ -507,8 +514,11 @@ class Design(object):
 		# print self.manager.prevd.obj		
 		# sys.exit()
 		cmd.delete("all")
-		if os.path.exists(savedir+self.obj+"pdb"): cmd.load(savedir+self.obj+"pdb",self.obj,1)
-		else:                                      cmd.load(self.fname            ,self.obj,1)
+		if os.path.exists(savedir+self.obj+".pdb"): 
+			print "LOAD FROM SAVED!!!!!!!"
+			cmd.load(savedir+self.obj+".pdb",self.obj,1)
+		else:
+			cmd.load(self.fname,self.obj,1)
 		cmd.remove(self.obj+" and not chain A")
 		cmd.fetch(self.pid)
 		cmd.remove("het or hydro")
@@ -517,7 +527,7 @@ class Design(object):
 		cmd.hide('ev')
 		cmd.show('lines')
 		cmd.show("car")
-		cmd.disable(self.pid)
+		#cmd.disable(self.pid)
 		redopent(self.obj)
 		self.recalc_design_pos()
 		self.read_data_dir('avg_deg')
@@ -539,19 +549,25 @@ class Design(object):
 	def recalc_design_pos(self):
 		res = [Residue(x[1],x[0],self.obj) for x in getres(self.obj+" and chain A")]
 		re2 = []
-		first,last = 0,-1
+		#first,last = 0,-1
 		c0,r0,cN,rN = None,None,None,None
 		while r0 is None:
-			try: c0,r0 = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[first].sel()))[0]
-			except IndexError: first += 1
+			try: 
+				c0,r0 = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[0].sel()))[0]
+			except IndexError:
+				#first += 1
+				res = res[1:]
 		while rN is None:
-			try: cN,rN = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[ last].sel()))[0]
-			except IndexError: last -= 1
+			try: 
+				cN,rN = getres('%s within 1.0 of (%s and name ca)'%(self.pid,res[-1].sel()))[0]
+			except IndexError:
+				#last -= 1
+				res = res[:-1]
 		assert c0 is not None and r0 is not None and cN is not None and rN is not None 
-		assert first < 10 and last > -10 and c0==cN
+		assert  c0==cN # and first < 10 and last > -10
 		c = c0
 		try:
-			for i in range(r0,rN+1):
+			for j,i in enumerate(range(r0,rN+1)):
 				r2 = Residue(i,c,self.pid)
 				re2.append(r2)
 		except IndexError:
