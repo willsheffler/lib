@@ -1,0 +1,94 @@
+make alias's of lo0 and add forwarding rule:
+
+    ifconfig lo0 alias 127.0.0.201/32
+    etc...
+
+
+# now set up virtual newtork devices for each machine to tunnel to: (from /etc/hosts)
+# need to figure out how to change this in and out easily... for when I'm behind the FW...
+
+127.0.0.201 whip01
+127.0.0.202 whip02
+127.0.0.203 whip03
+127.0.0.204 whip04
+127.0.0.205 whip05
+127.0.0.206 whip06
+127.0.0.207 whip07
+127.0.0.208 whip08
+127.0.0.209 whip09
+127.0.0.210 whip10
+127.0.0.211 badger
+127.0.0.212 niau
+127.0.0.213 seth
+127.0.0.214 bes
+127.0.0.215 hapy
+127.0.0.216 isis
+127.0.0.217 maat
+127.0.0.218 yah
+127.0.0.219 apep
+127.0.0.220 gebb
+127.0.0.221 ptah
+127.0.0.222 nut
+
+
+# now forward connections to each of these IPs to an appropriate port on localhost (127.0.0.1):
+
+ipfw add 55201 fwd lappy,55201 tcp from me to 127.0.0.201 dst-port 22
+
+
+
+#then forward all these ports on to fw.bakerlab.org...
+
+ssh -NY \
+	-L 55201:localhost:55201 \
+	-L 55202:localhost:55202 \
+	-L 55203:localhost:55203 \
+	-L 55204:localhost:55204 \
+	-L 55205:localhost:55205 \
+	-L 55206:localhost:55206 \
+	-L 55207:localhost:55207 \
+	-L 55208:localhost:55208 \
+	-L 55209:localhost:55209 \
+	-L 55210:localhost:55210 \
+	-L 55211:localhost:55211 \
+	-L 55212:localhost:55212 \
+	-L 55213:localhost:55213 \
+	-L 55214:localhost:55214 \
+	-L 55215:localhost:55215 \
+	-L 55216:localhost:55216 \
+	-L 55217:localhost:55217 \
+	-L 55218:localhost:55218 \
+	-L 55219:localhost:55219 \
+	-L 55220:localhost:55220 \
+	-L 55221:localhost:55221 \
+	-L 55222:localhost:55222 \
+   fw.bakerlab.org
+
+# also make sure that the appropriate ports on fw.bakerlab.org are being forwarded
+# to the right machines. this is a pain.. but hopefully I can leave them open for a 
+# while at a time:
+
+nohup ssh -fNY -L 55201:localhost:22 whip01
+nohup ssh -fNY -L 55202:localhost:22 whip02
+nohup ssh -fNY -L 55203:localhost:22 whip03
+nohup ssh -fNY -L 55204:localhost:22 whip04
+nohup ssh -fNY -L 55205:localhost:22 whip05
+nohup ssh -fNY -L 55206:localhost:22 whip06
+nohup ssh -fNY -L 55207:localhost:22 whip07
+nohup ssh -fNY -L 55208:localhost:22 whip08
+nohup ssh -fNY -L 55209:localhost:22 whip09
+nohup ssh -fNY -L 55210:localhost:22 whip10
+nohup ssh -fNY -L 55211:localhost:22 badger
+nohup ssh -fNY -L 55212:localhost:22 niau
+nohup ssh -fNY -L 55213:localhost:22 seth
+nohup ssh -fNY -L 55214:localhost:22 bes
+nohup ssh -fNY -L 55215:localhost:22 hapy
+nohup ssh -fNY -L 55216:localhost:22 isis
+nohup ssh -fNY -L 55217:localhost:22 maat
+nohup ssh -fNY -L 55218:localhost:22 yah
+nohup ssh -fNY -L 55219:localhost:22 apep
+nohup ssh -fNY -L 55220:localhost:22 gebb
+nohup ssh -fNY -L 55221:localhost:22 ptah
+nohup ssh -fNY -L 55222:localhost:22 nut
+
+

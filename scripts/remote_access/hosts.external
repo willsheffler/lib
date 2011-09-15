@@ -1,0 +1,40 @@
+##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1	localhost lappy baker
+255.255.255.255	broadcasthost
+::1             localhost 
+
+10.27.182.1 huge.valhalla huge
+10.27.182.6 oldlappy.valhalla oldlappy
+
+# below should only be used with crazy ssh-tunnel setup 
+# (will cause problems inside baker firewall)
+127.0.0.201 whip01
+127.0.0.202 whip02
+127.0.0.203 whip03
+127.0.0.204 whip04
+127.0.0.205 whip05
+127.0.0.206 whip06
+127.0.0.207 whip07
+127.0.0.208 whip08
+127.0.0.209 whip09
+127.0.0.210 whip10
+127.0.0.211 badger
+127.0.0.212 niau
+127.0.0.213 seth
+127.0.0.214 bes
+127.0.0.215 hapy
+127.0.0.216 isis
+127.0.0.217 maat
+127.0.0.218 yah
+127.0.0.219 apep
+127.0.0.220 gebb
+127.0.0.226 ptah
+127.0.0.222 nut
+127.0.0.223 ratfor
+127.0.0.224 snobol
+127.0.0.225 zaza

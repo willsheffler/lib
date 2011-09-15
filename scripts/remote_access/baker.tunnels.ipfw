@@ -1,0 +1,6 @@
+for i in 0 1 2; do 
+    for j in 0 1 2 3 4 5 6 7 8 9; do 
+	sudo ifconfig lo0 alias 127.0.0.2$i$j/32
+	sudo ipfw add 552$i$j fwd lappy,552$i$j tcp from me to 127.0.0.2$i$j dst-port 22
+    done
+done

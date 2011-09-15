@@ -1,0 +1,34 @@
+for i in 1; do 
+    ifconfig lo0 alias 127.0.0.201/32
+    ipfw add 55201 fwd lappy,55201 tcp from me to 127.0.0.201 dst-port 22
+done
+
+if [ ]; do 
+
+# this is for on fw.bakerlab.org
+nohup ssh -fNY -L 55201:localhost:22 whip01
+nohup ssh -fNY -L 55202:localhost:22 whip02
+nohup ssh -fNY -L 55203:localhost:22 whip03
+nohup ssh -fNY -L 55204:localhost:22 whip04
+nohup ssh -fNY -L 55205:localhost:22 whip05
+nohup ssh -fNY -L 55206:localhost:22 whip06
+nohup ssh -fNY -L 55207:localhost:22 whip07
+nohup ssh -fNY -L 55208:localhost:22 whip08
+nohup ssh -fNY -L 55209:localhost:22 whip09
+nohup ssh -fNY -L 55210:localhost:22 whip10
+nohup ssh -fNY -L 55211:localhost:22 badger
+nohup ssh -fNY -L 55212:localhost:22 niau
+nohup ssh -fNY -L 55213:localhost:22 seth
+nohup ssh -fNY -L 55214:localhost:22 bes
+nohup ssh -fNY -L 55215:localhost:22 hapy
+nohup ssh -fNY -L 55216:localhost:22 isis
+nohup ssh -fNY -L 55217:localhost:22 maat
+nohup ssh -fNY -L 55218:localhost:22 yah
+nohup ssh -fNY -L 55219:localhost:22 apep
+nohup ssh -fNY -L 55220:localhost:22 gebb
+nohup ssh -fNY -L 55221:localhost:22 ptah
+nohup ssh -fNY -L 55222:localhost:22 nut
+
+
+
+fi
