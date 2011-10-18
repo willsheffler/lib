@@ -1449,11 +1449,11 @@ def mkpntx(s1,s2):
 	rot('p3',Vec(1,0,0),2*72,c)
 	rot('p4',Vec(1,0,0),3*72,c)
 	rot('p5',Vec(1,0,0),4*72,c)
-	cmd.color('green' ,'p1 and elem C')
-	cmd.color('cyan'  ,'p2 and elem C')
-	cmd.color('yellow','p3 and elem C')
+	cmd.color('green'  ,'p1 and elem C')
+	cmd.color('cyan'   ,'p2 and elem C')
+	cmd.color('yellow' ,'p3 and elem C')
 	cmd.color('magenta','p4 and elem C')
-	cmd.color('orange'   ,'p5 and elem C')
+	cmd.color('orange' ,'p5 and elem C')
 	
 	
 def ifsphab():
@@ -1491,6 +1491,7 @@ def redopent(sel):
 	cmd.alter("pntD","chain='D'")
 	cmd.alter("pntE","chain='E'")
 	cmd.set_view(v)
+	print charge(sel)
 
 def getaa(c,r,o='all'):
 	m = cmd.get_model("%s and chain %s and resi %d"%(o,c,int(r)))
@@ -1516,8 +1517,21 @@ def mkifaceresfile(fn=None):
 
 
 	
-	
-	
+def getnative():
+	v = cmd.get_view()
+	nats = []
+	for obj in cmd.get_object_list():
+		if len(obj)==4: 
+			nats.append(obj)
+			continue
+		pid = obj[:4]
+		if pid in nats: continue
+		print "fetching native",pid
+		cmd.fetch(pid)
+		cmd.remove(pid+" and not chain A")
+		cmd.remove(pid+" and resn HOH")
+		cmd.align(pid,obj)
+	cmd.set_view(v)
 	
 	
 	

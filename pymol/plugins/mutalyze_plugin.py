@@ -479,30 +479,24 @@ class Design(object):
 		self.resscoreslbl = os.popen("grep '^label fa_atr' "+self.fname).read().split()
 		self.resscoreslbl[-1] = "score" # instead of total
 	
-	def save(self,manual=False):
-		sd = "mutalyze_MANUAL_SAVE/" if manual else savedir
-		if not os.path.exists(sd): os.mkdir(sd)
-		redopent(self.obj)
-		cmd.save (sd+self.obj+".pse")
-		cmd.save (sd+self.obj+".pdb",self.obj+" or pnt*")
-		with open(sd+self.obj+".resfile","w") as o: o.write(self.resfile()+"\n")
-		#print "saved pse, pdb, and resfile with notes"
-		self.remembermm = self.manager.m
-		self.remembermv = cmd.get_view()
+	def getloadname(self):
+		i = 0
+		while os.path.exists(sd+self.obj+"_%i"%i): i+=1
+		mansave = sd+self.obj+"_%i.pdb"%(i-1)
+		if i==0: mansave = None
+		if mansave:
+			print "LOAD FROM SAVED",mansave
+			return mansave
+		elif os.path.exists("mutalyze_PYMOL_WORKING/"+self.obj+".pdb"):
+			print "LOAD FROM AUTOSAVED","mutalyze_PYMOL_WORKING/"+self.obj+".pdb"
+			return "mutalyze_PYMOL_WORKING/"+self.obj+".pdb"
+		else:
+			return self.fname
 	
-	def resfile(self):
-		self.resupdate()
-		sp = max(len(dp.aas) for dp in self.muts)
-		rf = "AUTO\nNATRO\n\nstart\n"
-		for m in self.muts: rf += m.resfileline(sp)+'\n'
-		return rf
-	
-	def resupdate(self):
-		for m in self.muts:
-			aa = getaa('A',m.rdes.resi,self.obj)
-			aa3 = aa_1_3[aa]
-			if aa3 != m.rdes.resn and aa3 != m.rnat.resn:
-				m.aas = [aa]
+	def getsavename(self,sd):
+		i = 0
+		while os.path.exists(sd+self.obj+"_%i"%i): i+=1
+		return sd+self.obj+"_%i"%i
 	
 	def load(self):
 		self.manager.d = self
@@ -514,11 +508,7 @@ class Design(object):
 		# print self.manager.prevd.obj		
 		# sys.exit()
 		cmd.delete("all")
-		if os.path.exists(savedir+self.obj+".pdb"): 
-			print "LOAD FROM SAVED!!!!!!!"
-			cmd.load(savedir+self.obj+".pdb",self.obj,1)
-		else:
-			cmd.load(self.fname,self.obj,1)
+		cmd.load(self.getloadname(),self.obj,1)
 		cmd.remove(self.obj+" and not chain A")
 		cmd.fetch(self.pid)
 		cmd.remove("het or hydro")
@@ -542,6 +532,32 @@ class Design(object):
 		if self.remembermv: cmd.set_view(self.remembermv)
 		
 	
+	def save(self,manual=False,savepse=False):
+		sd = "mutalyze_MANUAL_SAVE/" if manual else savedir
+		if not os.path.exists(sd): os.mkdir(sd)
+		redopent(self.obj)
+		sname = self.getsavename(sd)
+		if savepse: cmd.save(sname+".pse")
+		cmd.save (sname+".pdb",self.obj+" or pnt*")
+		with open(sname+".resfile","w") as o: o.write(self.resfile()+"\n")
+		#print "saved pse, pdb, and resfile with notes"
+		self.remembermm = self.manager.m
+		self.remembermv = cmd.get_view()
+	
+	def resfile(self):
+		self.resupdate()
+		sp = max(len(dp.aas) for dp in self.muts)
+		rf = "AUTO\nNATRO\n\nstart\n"
+		for m in self.muts: rf += m.resfileline(sp)+'\n'
+		return rf
+	
+	def resupdate(self):
+		for m in self.muts:
+			aa = getaa('A',m.rdes.resi,self.obj)
+			aa3 = aa_1_3[aa]
+			if aa3 != m.rdes.resn and aa3 != m.rnat.resn:
+				m.aas = [aa]
+	
 	def get_design_pos(self):
 		if not self.muts: recalc_design_pos()
 		return self.muts
@@ -564,7 +580,7 @@ class Design(object):
 				#last -= 1
 				res = res[:-1]
 		assert c0 is not None and r0 is not None and cN is not None and rN is not None 
-		assert  c0==cN # and first < 10 and last > -10
+		assert c0==cN # and first < 10 and last > -10
 		c = c0
 		try:
 			for j,i in enumerate(range(r0,rN+1)):

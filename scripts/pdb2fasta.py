@@ -31,9 +31,9 @@ for pdbname in pdbnames:
 
     lines = []
     if netpdbname.endswith(".gz"):
-        lines = popen("zcat "+netpdbname).readlines()
+        lines = popen("zgrep ' CA ' "+netpdbname).readlines()
     else:
-        lines = open(netpdbname,'r').readlines()
+        lines = popen("grep ' CA ' "+netpdbname).readlines()
 
     if argv.count('-list'):
         print os.path.basename(netpdbname).replace(".gz","").replace(".pdb","")+": ",
