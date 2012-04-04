@@ -1,4 +1,4 @@
-import math
+import math,random
 
 class Vec(object):
    def __init__(self,x,y=None,z=None):
@@ -19,6 +19,8 @@ class Vec(object):
       return math.sqrt(u.dot(u))
    def distance(u,v):
       return (u-v).length()
+   def distance_squared(u,v):
+      return u.x*v.x+u.y*v.y+u.z*v.z
    def d(u,v):
       return (u-v).length()
    def cross(u,v):
@@ -166,6 +168,45 @@ class Mat(object):
       return "Mat( "+str(m.rowx())+"\n     "+str(m.rowy())+"\n     "+str(m.rowz()) + "  )"
    def transpose(m):
       return Mat( m.xx, m.yx, m.zx, m.xy, m.yy, m.zy, m.xz, m.yz, m.zz )
+   def trace(m):
+      return m.xx+m.yy+m.zz
+   def add_diagonal(m,v):
+      return Mat( v.x+m.xx, m.xy, m.xz, m.yx, v.y+m.yy, m.yz, m.zx, m.zy, v.z+m.zz )
+
+class Stub(object):
+   """docstring for Stub"""
+   def __init__(self, frame, cen):
+      super(Stub, self).__init__()
+      self.frame = frame
+      self.cen = cen
+   def from_four_points(s,cen,a,b,c):
+      s.cen = cen
+      e1 = Vec(a-b).normalized()
+      e3 = Vec(e1.cross(c-b)).normalized()
+      e2 = Vec(e1.cross(e3)).normalized()
+      s.frame = Mat(e1.x,e2.x,e3.x,e1.y,e2.y,e3.y,e1.z,e2.z,e3.z)
+      return s
+   def to_frame(s,x):
+      return s.frame * (x - s.cen)
+   def from_frame(s,x):
+      return (s.frame.transpose() * x) + s.cen
+      
+
+class Jump(object):
+   """docstring for Jump"""
+   def __init__(self, rot, trans):
+      super(Jump, self).__init__()
+      assert type(rot) is Mat and type(trans) is Vec
+      self.rot = rot
+      self.trans = trans
+
+def proj(u,v):
+   return projection_matrix(u)*v
+
+def projperp(u,v):
+   return v - proj(u,v)
+
+
 
 def projection_matrix(v):
    m = Mat( v.x * v.x, v.x * v.y, v.x * v.z, v.y * v.x, v.y * v.y, v.y * v.z, v.z * v.x, v.z * v.y, v.z * v.z )
@@ -203,4 +244,70 @@ def angle(p1,p2,p3=None):
    		b = ( p2 - p3 ).normalized()
    		return math.acos( a.dot(b) ) * 180.0 / 3.14159
 
+
+def sin_cos_range(x):
+	assert -1.001 < x < 1.001
+	return min(1.0,max(-1.0,x))
+
+def rotation_axis(R):
+	cos_theta = sin_cos_range((R.trace()-1.0)/2.0);
+	tolerance = 0.000000001
+	if cos_theta > -1.0+tolerance and cos_theta < 1.0-tolerance:
+		x = ( 1.0 if R.zy > R.yz else -1.0 ) * math.sqrt( ( R.xx - cos_theta ) / ( 1.0 - cos_theta ) )
+		y = ( 1.0 if R.xz > R.zx else -1.0 ) * math.sqrt( ( R.yy - cos_theta ) / ( 1.0 - cos_theta ) )
+		z = ( 1.0 if R.yx > R.xy else -1.0 ) * math.sqrt( ( R.zz - cos_theta ) / ( 1.0 - cos_theta ) )
+		theta = math.acos( cos_theta );
+		assert abs( x*x + y*y + z*z - 1 ) <= 0.01
+		return Vec(x,y,z),theta
+	elif cos_theta >= 1.0-tolerance:
+		return Vec(1.0,0.0,0.0),0.0
+	else:
+		nnT = R.add_diagonal(Vec(1.0,1.0,1.0)) / 2.0
+		x,y,z = 0.0,0.0,0.0;
+		if nnT.xx > tolerance:
+			x = math.sqrt( nnT.xx )
+			y = nnT.yx / x
+			z = nnT.zx / x
+		elif nnT.yy > tolerance:
+			x = ZERO
+			y = math.sqrt(nnT.yy)
+			z = nnT.zy / y
+		else:
+			assert( nnT.zz > tolerance );
+			x = ZERO
+			y = ZERO
+			z = sqrt( nnT.zz )
+		assert abs( x*x + y*y + z*z - 1.0 ) <= 0.01
+		return Vec( x, y, z ),math.pi
+
+def test_rotation_mat():
+	import random
+	for i in range(10000):
+		a0 = Vec(random.gauss(0.0,1.0),random.gauss(0.0,1.0),random.gauss(0.0,1.0)).normalized()
+		t0 = random.uniform(0,math.pi)
+		a,t = rotation_axis(rotation_matrix_radians(a0,t0))
+		if t == 0.0 and t0 < 0.001:
+			continue
+		if abs(t-math.pi) < 0.00001:
+			if (abs(a.x-a0.x) < 0.001 and abs(a.y-a0.y) < 0.001 and abs(a.z-a0.z) < 0.001) or \
+			   (abs(a.x+a0.x) < 0.001 and abs(a.y+a0.y) < 0.001 and abs(a.z+a0.z) < 0.001):
+				continue
+			else:
+				print a0
+				print a
+				continue
+		if not abs(t-t0) < 0.0001 or not (a.normalized()-a0.normalized()).length() < 0.0001:
+			print a0.normalized(), t0
+			print a.normalized() , t
+			print "FAIL"
+			return
+	print "test_rotation_mat PASS"
+
+
+
+def test():
+	test_rotation_mat()
+
+if __name__ == '__main__':
+	test()
 

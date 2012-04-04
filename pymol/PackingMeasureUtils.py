@@ -4,7 +4,7 @@ import sys,os,random
 from math import floor
 
 sys.path.append("/Users/sheffler/svn/trunk/python_scripts/pymol_scripts")
-from GenUtils import zload
+# from GenUtils import zload
 
 rainbow = ['0xCCFF00', '0xFF0000', '0xCC00FF', '0x00FF66', '0x80FF00', '0x0019FF', '0x00FF19', '0x33FF00', '0xFF0099', '0xFF004D', '0xFF00E6', '0x00FFFF', '0x0066FF', '0x8000FF', '0x00B3FF', '0xFFE500', '0x00FFB2', '0xFF4C00', '0x3300FF', '0xFF9900']
 
