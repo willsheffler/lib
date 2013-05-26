@@ -1,3 +1,9 @@
 *.pyc
 *~
 
+
+.svn
+\#*
+/willclang.tar
+/willclang/doc/build/
+/willclang/doc/_build/

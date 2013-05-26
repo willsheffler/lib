@@ -1,88 +1,113 @@
+#!/usr/bin/env python
+
 import tornado.ioloop
 import tornado.web
-import json,os,time,threading
+import json,os,time,threading,subprocess
 
 
 
-WD = "/work/sheffler/tmp/sicdock_service/"
+WD = "/work/sheffler/tmp/sicdock_server/"
 os.chdir(WD)
 
-BIN = "/work/sheffler/bin/sicdock_service"
-serv_in,serv_out = os.popen2(BIN)
-
-class RescoreThread(threading.Thread):
-	"""docstring for RescoreThread"""
-	def __init__(self, cmd):
-		super(RescoreThread, self).__init__()
-		self.cmd = cmd
-	def run(self):
-		jstr = """    totsc CLSH __ang1 __ang2  __dis1  __dis2 _closed _intra1 _intra2 _mCOV _mEE _mEXT2   _mRES dN0 dN1 dN2 mDUMP mEXT1 mEXT3  mLOG  mNUM  mRAW  mSQRT nM1 nM2 nT1 nT2 n_A n_E n_H n_L   rmi1  rmi2  rmi3  rmi4 scrgen2  tdis tr0 tr1 tr2  y_dori y_ofst  y_ori
-C5_2obx_1_C3_1f23_1_I53R_1            93.815    0   65.0   13.0  -71.20  -62.41 0.98403    0.03    0.00 0.552    0  3.295   94.90 139  14   6  1050   9.6 1.255  23.9    60 112.5   59.8  21  27  41  46  87   0  69  18   73.1  12.5  -9.4  16.4  93.815  30.2 222 150  72  -43.61   3.70  101.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.56244984463271,-37.42965244594426,0.0,211.7174744114613,148.2825255885387,6.999999999999961],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-58.30230741451545,0.0,-22.2694998097998,39.37348783066911,39.37348783066911,117.8943691678887],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-C5_2obx_1_C3_1f23_1_I53R_6            90.808    3   62.0   20.0  -71.33  -62.53 0.98403    0.00    0.00 0.522    0  3.204   90.66 138   8   4   476  10.0 1.416  23.4    56  99.3   44.9  19  28  43  47  90   1  75  14   73.2  12.5  -9.4  16.4  90.808  30.8 222 150  72  -43.70   3.50  101.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.68094666110041,-37.50288750607995,3.552713678800501e-15,211.7174744114613,148.2825255885387,10.00000000000005],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-58.4163820240972,0.0,-22.31307243340665,44.4318126435404,44.4318126435404,122.7645564043373],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-C5_2obx_1_C3_1f23_1_I53R_30           86.288    0   63.0   35.0  -71.11  -71.11 0.98403    0.03    0.00 0.506    0  3.551   85.52 139  10   4   199   9.4 1.332  16.4    58  93.9   52.3  20  25  41  48  89   0  71  18   75.0  11.5  -6.2  14.6  86.288  29.5 222 150  72  -45.57   3.70   90.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.49012670302983,-37.38495428626051,0.0,211.7174744114613,148.2825255885387,9.000000000000036],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-66.42937830811695,0.0,-25.37376466217557,58.14718852103299,58.14718852103299,131.5744637854795],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-"""
-		i,o = os.popen(self.cmd)
-		i.write(jstr)
+BIN = "/work/sheffler/bin/sicdock_stream"
+subproc = subprocess.Popen(BIN, stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
 
 class MainHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.write("top level site")
 
 class RescoreHandler(tornado.web.RequestHandler):
-	def get(self,bouquet):
+	def get(self,bouquet_input):
+		splt = bouquet_input.split()
+		tag = splt[0]
+		jbouq = "".join(splt[1:])
 		try:
-			bouquet_json = json.loads(bouquet)
-			print "write to sicdock_service"
-			serv_in.write(bouquet_json)
-			print "done write"
-			self.write(str(bouquet_json))
-		except:
-			self.write("bad json:<br>"+bouquet)
+			bouquet_json = json.loads(jbouq)
+		except Exception as excpt:
+			return self.write("bad bouquet specification:<br>"+jbouq)
 
+		# self.write("tag: "+tag+"<br>")
+		try:
+			output = subproc.stdout.readline()
+			while not output.startswith("READY"):
+				output = subproc.stdout.readline()
+				print "sicdock_stream says:",output,
+		except Exception as excpt:
+			return self.write("problem reading from sicdock_stream before write<br>")
+		# self.write("about to write to sicdock_stream<br>")
+		try:
+			subproc.stdin.write(bouquet_input+"\n")
+			subproc.stdin.flush()
+		except Exception as excpt:
+			return self.write("error writing to sicdock_stream:<br>"+str(excpt))
+
+		msg = ""
+		try:
+			result = subproc.stdout.readline().split()
+			assert result[0]=="RESULT"
+			pdbfile = result[1]
+			pdbfile = os.path.basename(pdbfile)
+		except Exception as excpt:
+			msg = "problem reading from sicdock_stream subprocess after write<br>"+str(result)
+
+		# newurl = "http://www.google.com/"
+		# newurl = "file:///Users/sheffler/tmp/sicdock_stream/C5_2qw7_1_C3_1woz_1_I53F_11.pdb"
+		while not os.path.exists(WD+tag+".pdb"): time.sleep(0.1)
+		tail = os.popen("tail -n1 "+WD+tag+".pdb").read().strip()
+		while not tail=="ENDMDL":
+			print tail
+			time.sleep(0.1)
+			tail = os.popen("tail -n1 "+WD+tag+".pdb").read().strip()
+
+		newurl = "http://localhost:50001/static/"+tag+".pdb"
+		self.write('<html><head><meta http-equiv="refresh" content="0; url='+newurl+'"></head><body>'+msg+'<br>forwarding to '+newurl+'</body></html>')
 
 application = tornado.web.Application([
 	(r"/", MainHandler),
 	(r"/rescore/bouquet=(.+)", RescoreHandler),
+	(r'/static/(.+)', tornado.web.StaticFileHandler, {'path':WD}),
+
 ])
 
 if __name__ == "__main__":
-	jstr = """    totsc CLSH __ang1 __ang2  __dis1  __dis2 _closed _intra1 _intra2 _mCOV _mEE _mEXT2   _mRES dN0 dN1 dN2 mDUMP mEXT1 mEXT3  mLOG  mNUM  mRAW  mSQRT nM1 nM2 nT1 nT2 n_A n_E n_H n_L   rmi1  rmi2  rmi3  rmi4 scrgen2  tdis tr0 tr1 tr2  y_dori y_ofst  y_ori
-C5_2obx_1_C3_1f23_1_I53R_1            93.815    0   65.0   13.0  -71.20  -62.41 0.98403    0.03    0.00 0.552    0  3.295   94.90 139  14   6  1050   9.6 1.255  23.9    60 112.5   59.8  21  27  41  46  87   0  69  18   73.1  12.5  -9.4  16.4  93.815  30.2 222 150  72  -43.61   3.70  101.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.56244984463271,-37.42965244594426,0.0,211.7174744114613,148.2825255885387,6.999999999999961],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-58.30230741451545,0.0,-22.2694998097998,39.37348783066911,39.37348783066911,117.8943691678887],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-C5_2obx_1_C3_1f23_1_I53R_6            90.808    3   62.0   20.0  -71.33  -62.53 0.98403    0.00    0.00 0.522    0  3.204   90.66 138   8   4   476  10.0 1.416  23.4    56  99.3   44.9  19  28  43  47  90   1  75  14   73.2  12.5  -9.4  16.4  90.808  30.8 222 150  72  -43.70   3.50  101.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.68094666110041,-37.50288750607995,3.552713678800501e-15,211.7174744114613,148.2825255885387,10.00000000000005],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-58.4163820240972,0.0,-22.31307243340665,44.4318126435404,44.4318126435404,122.7645564043373],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-C5_2obx_1_C3_1f23_1_I53R_30           86.288    0   63.0   35.0  -71.11  -71.11 0.98403    0.03    0.00 0.506    0  3.551   85.52 139  10   4   199   9.4 1.332  16.4    58  93.9   52.3  20  25  41  48  89   0  71  18   75.0  11.5  -6.2  14.6  86.288  29.5 222 150  72  -45.57   3.70   90.0 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.49012670302983,-37.38495428626051,0.0,211.7174744114613,148.2825255885387,9.000000000000036],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-66.42937830811695,0.0,-25.37376466217557,58.14718852103299,58.14718852103299,131.5744637854795],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}
-"""
-	# application.listen(50001)
-	# tornado.ioloop.IOLoop.instance().start()
+	try:
+		application.listen(50001)
+		tornado.ioloop.IOLoop.instance().start()
+	finally:
+		print "killing sicdock_stream subprocess"
+		subproc.kill()
 
-	output = serv_out.readline()
-	while not output.startswith("READY"):
-		output = serv_out.readline()
-		print "server says:",output,
+	# jstr = """C5_2obx_1_C3_1f23_1_I53R_1 {"Bouquet":{"stems":{"Stems":[{"Stem":{"Rose":{"position":[-60.56244984463271,-37.42965244594426,0.0,211.7174744114613,148.2825255885387,6.999999999999961],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C5/C5_2obx_1.pdb.gz","zero":[0.0,0.0,0.0,301.7174744114613,121.7174744114613,90.00000256132094]},"SymOper":{"FixedAxisOper":{"axis":[0.8506508083520371,0.5257311121191383,0.0],"nfold":5}}}},{"Stem":{"Rose":{"position":[-58.30230741451545,0.0,-22.2694998097998,39.37348783066911,39.37348783066911,117.8943691678887],"source":"/work/sheffler/data/PISA_PDB_SYMMETRIC_SCAFFOLDS_BALE/C3/C3_1f23_1.pdb.gz","zero":[0.0,0.0,0.0,90.0,270.0,69.09484062937167]},"SymOper":{"FixedAxisOper":{"axis":[0.9341723589627162,0.0,0.3568220897730885],"nfold":3}}}}]},"sym_gen_depth":4,"sym_gen_dist":9000000000.0}}"""
 
-	serv_in.write(jstr)
-	serv_in.flush()
+	# output = subproc.stdout.readline()
+	# while not output.startswith("READY"):
+	# 	output = subproc.stdout.readline()
+	# 	print "server says:",output,
 
-	while not os.path.exists("C5_2obx_1_C3_1f23_1_I53R_1.pdb"):
-		print "wait for output"
-		time.sleep(1)
+	# subproc.stdin.write(jstr+"\n")
+	# subproc.stdin.flush()
 
-	print WD+"C5_2obx_1_C3_1f23_1_I53R_1.pdb"
+	# while not os.path.exists("C5_2obx_1_C3_1f23_1_I53R_1.pdb"):
+	# 	print "wait for output"
+	# 	time.sleep(1)
+
+	# print WD+"C5_2obx_1_C3_1f23_1_I53R_1.pdb"
 
 
-	output = serv_out.readline()
-	while output != "RESULT":
-		output = serv_out.readline()
-		print "server says:",output,
+	# output = subproc.stdout.readline()
+	# while output != "RESULT":
+	# 	output = subproc.stdout.readline()
+	# 	print "server says:",output,
 
-	result = output.split()[1]
+	# result = output.split()[1]
 
-	print "got file location",result
+	# print "got file location",result
 
-	output = serv_out.readline()
-	while not output.startswith("READY"):
-		output = serv_out.readline()
-		print "server says:",output,
+	# output = subproc.stdout.readline()
+	# while not output.startswith("READY"):
+	# 	output = subproc.stdout.readline()
+	# 	print "server says:",output,
 
-	print "DONE"
+	# print "DONE"
 
 
